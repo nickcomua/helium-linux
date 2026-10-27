@@ -1,0 +1,58 @@
+import fs from 'node:fs';
+import {spawn,execFileSync} from 'node:child_process';
+const REPO = process.env.HELIUM_REPO || new URL('../../', import.meta.url).pathname.replace(/\/$/, '');
+const DIR = process.env.ARTIFACT_DIR || REPO + '/build/nested-tabs-tests/baseline';
+fs.mkdirSync(DIR, {recursive: true});
+const PROFILE=DIR+'/profile', BIN=process.env.HELIUM_BINARY || REPO+'/build/src/out/Default/helium';
+const FLAKE=process.env.HELIUM_FLAKE || REPO+'/../helium';
+const XDO=process.env.XDOTOOL || 'xdotool';
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+const results={cases:[],notes:['Nested collections are represented by extra unpinnedTabCollection nodes; Mojo does not expose collapse.'],started:new Date().toISOString()};
+let xv,browser,inspector,settings;const sockets=[];
+function save(){fs.writeFileSync(DIR+'/results.json',JSON.stringify(results,null,2));}
+async function connect(url){const ws=new WebSocket(url);sockets.push(ws);await new Promise((r,j)=>{ws.onopen=r;ws.onerror=j});let id=0;const pending=new Map();ws.onmessage=e=>{const m=JSON.parse(e.data);if(pending.has(m.id)){pending.get(m.id)(m);pending.delete(m.id)}};return async(method,params={})=>{const n=++id;const res=await Promise.race([new Promise(r=>{pending.set(n,r);ws.send(JSON.stringify({id:n,method,params}))}),delay(8000).then(()=>{throw Error('CDP timeout '+method)})]);if(res.error)throw Error(JSON.stringify(res.error));return res.result;};}
+async function targets(){return await(await fetch('http://127.0.0.1:9336/json/list')).json()}
+async function evalOn(t,expression){const c=await connect(t.webSocketDebuggerUrl);try{const v=await c('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true,userGesture:true});if(v.exceptionDetails)throw Error(JSON.stringify(v.exceptionDetails));return v.result.value}finally{sockets.at(-1)?.close()}}
+async function newTab(url){return await(await fetch('http://127.0.0.1:9336/json/new?'+encodeURIComponent(url),{method:'PUT'})).json()}
+async function activate(t){await fetch('http://127.0.0.1:9336/json/activate/'+t.id);await delay(200)}
+function xdo(...args){execFileSync(XDO,args,{env:{...process.env,DISPLAY:':98'}})}
+async function shot(name){execFileSync('import',['-display',':98','-window','root',DIR+'/'+name+'.png'])}
+function normalize(n){const k=Object.keys(n.data)[0],d=n.data[k];return k==='tab'?{title:d.title,url:d.url,active:d.active,selected:d.selected}:{type:k,children:n.children.map(normalize)}}
+async function snap(name){const raw=await evalOn(inspector,`(async()=>{const m=await import('./tab_strip_internals_api_proxy.js');return JSON.parse(JSON.stringify(await m.TabStripInternalsApiProxyImpl.getInstance().getTabStripData(),(k,v)=>typeof v==='bigint'?v.toString():v))})()`);fs.writeFileSync(DIR+'/'+name+'.json',JSON.stringify(raw,null,2));const tree=raw.data.tabstripTree.windows.map(w=>normalize(w.tabstripModel.root));await shot(name);results.snapshots??={};results.snapshots[name]=tree;save();return tree;}
+function assert(v,msg){if(!v)throw Error(msg)}
+async function test(name,fn){try{const details=await fn();results.cases.push({name,status:'pass',details})}catch(e){results.cases.push({name,status:'fail',error:e.message})}save()}
+async function start(initial=false){const log=fs.openSync(DIR+'/browser.log','a');const args=[BIN,'--ozone-platform=x11','--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-component-update','--password-store=basic','--remote-debugging-port=9336','--window-size=1280,900','--user-data-dir='+PROFILE,...(initial?['file://'+DIR+'/A.html']:[])];browser=spawn('nix',['run',FLAKE+'#browser-env','--','-c','export DISPLAY=:98; unset WAYLAND_DISPLAY; '+args.map(s=>"'"+s.replaceAll("'","'\\''")+"'").join(' ')],{env:{...process.env,DISPLAY:':98'},stdio:['ignore',log,log]});for(let i=0;i<90;i++){try{await targets();await delay(700);return}catch{}await delay(500)}throw Error('Browser startup failed')}
+async function stop(){if(!browser)return;for(const s of sockets)s.close();const v=await(await fetch('http://127.0.0.1:9336/json/version')).json();const c=await connect(v.webSocketDebuggerUrl);await c('Browser.close').catch(()=>{});for(let i=0;i<40;i++){try{await targets()}catch{browser=undefined;return}await delay(250)}throw Error('Browser did not exit gracefully')}
+async function pref(key,value){return evalOn(settings,`new Promise(r=>chrome.settingsPrivate.setPref(${JSON.stringify(key)},${JSON.stringify(value)},'',()=>chrome.settingsPrivate.getPref(${JSON.stringify(key)},r)))`)}
+async function local(name){return(await targets()).find(t=>t.url==='file://'+DIR+'/'+name+'.html')}
+async function openChild(from,to){const t=await local(from);await activate(t);await evalOn(t,`document.querySelector('#${to}').click()`);await delay(600)}
+function shape(tree){return JSON.stringify(tree,(k,v)=>['active','selected'].includes(k)?undefined:v)}
+async function main(){fs.mkdirSync(DIR,{recursive:true});if(fs.existsSync('/tmp/.X98-lock'))throw Error('Display :98 already occupied');try{await targets();throw Error('Port 9336 already occupied')}catch(e){if(e.message==='Port 9336 already occupied')throw e}
+if(fs.existsSync(PROFILE))fs.renameSync(PROFILE,PROFILE+'-'+Date.now());fs.mkdirSync(PROFILE+'/Default',{recursive:true});fs.writeFileSync(PROFILE+'/Default/Preferences',JSON.stringify({helium:{browser:{layout:2,vertical_nesting:true}},session:{restore_on_startup:1}}));
+for(const [n,color]of [['A','#ffe2ad'],['B','#b3e5ff'],['C','#d4ffc4'],['D','#f5c4ff']])fs.writeFileSync(DIR+'/'+n+'.html',`<!doctype html><title>PR1832 ${n}</title><body style="background:${color};font:32px sans-serif"><h1>PR1832 ${n}</h1>${['A','B','C','D'].map(x=>`<p><a id="${x}" target="_blank" href="${x}.html">Open ${x}</a></p>`).join('')}`);
+fs.writeFileSync(PROFILE+'/Local State',JSON.stringify({internal_only_uis_enabled:true}));
+xv=spawn('Xvfb',[':98','-screen','0','1280x900x24','-nolisten','tcp'],{stdio:'ignore'});await delay(500);await start(true);inspector=await newTab('helium://tab-strip-internals');settings=await newTab('helium://settings/appearance');await delay(800);
+const wid=execFileSync(XDO,['search','--onlyvisible','--class','helium'],{env:{...process.env,DISPLAY:':98'}}).toString().trim().split('\n')[0];xdo('windowmove',wid,'0','0');xdo('windowfocus',wid);results.isolation={display:':98',port:9336,hyprlandClients:JSON.parse(execFileSync('hyprctl',['clients','-j']).toString()).filter(x=>x.title?.includes('PR1832'))};assert(results.isolation.hyprlandClients.length===0,'Test leaked onto desktop');
+const compact=t=>t[0].children[0].children.map(function f(n){return n.title?(n.url?.startsWith('file://'+DIR+'/')?'PR1832 '+n.url.split('/').pop().replace('.html',''):n.title):n.children.map(f)});
+const eq=(a,b)=>assert(JSON.stringify(a)===JSON.stringify(b),'Expected '+JSON.stringify(b)+' actual '+JSON.stringify(a));
+const baseline=['DebugUI TabStrip','Settings - Appearance'];
+const active=t=>{let a;function f(n){if(n.active)a=n.title;n.children?.forEach(f)}t.forEach(f);return a};
+await snap('00-initial');
+await test('auto nest A > B exact tree/order',async()=>{await openChild('A','B');const t=await snap('01-auto-nest');eq(compact(t),[['PR1832 A','PR1832 B'],...baseline]);eq(active(t),'PR1832 B')});
+await test('multilevel A > B > C exact tree/order',async()=>{await openChild('B','C');const t=await snap('02-multilevel');eq(compact(t),[['PR1832 A',['PR1832 B','PR1832 C']],...baseline]);eq(active(t),'PR1832 C')});
+const original=compact(await snap('03-before-close'));
+await test('close child/reopen exact hierarchy and selection',async()=>{await activate(await local('C'));xdo('key','ctrl+w');await delay(500);const closed=await snap('04-child-closed');assert(!shape(closed).includes('PR1832 C'),'C still present');xdo('key','ctrl+shift+t');await delay(700);const t=await snap('05-child-reopened');eq(compact(t),original);eq(active(t),'PR1832 C')});
+await test('collapse A hides descendants and selects A',async()=>{await activate(await local('C'));xdo('mousemove','22','52','sleep','0.2','click','1');await delay(600);const t=await snap('06-collapsed');eq(compact(t),original);eq(active(t),'PR1832 A');xdo('mousemove','90','86','click','1');await delay(300);eq(active(await snap('07-hidden-row-check')),'DebugUI TabStrip')});
+await test('select collapsed descendant auto reveals it',async()=>{await activate(await local('C'));await delay(500);eq(active(await snap('08-child-selected')),'PR1832 C');xdo('mousemove','90','86','click','1');await delay(300);eq(active(await snap('09-revealed-row-check')),'PR1832 B')});
+await test('vertical horizontal vertical preserves exact hierarchy',async()=>{for(const v of [0,2]){eq((await pref('helium.browser.layout',v)).value,v);await delay(700);eq(compact(await snap('10-layout-'+v)),original)}});
+await test('nesting off back preserves existing hierarchy',async()=>{for(const v of [false,true]){eq((await pref('helium.browser.vertical_nesting',v)).value,v);await delay(500);eq(compact(await snap('11-nesting-'+v)),original)}});
+await test('nesting disabled prevents new auto nest',async()=>{await pref('helium.browser.vertical_nesting',false);await openChild('A','D');const t=await snap('12-no-auto-nest');eq(compact(t),[['PR1832 A',['PR1832 B','PR1832 C']],'PR1832 D',...baseline]);await activate(await local('D'));xdo('key','ctrl+w');await pref('helium.browser.vertical_nesting',true)});
+await test('graceful restart restores hierarchy and collapse',async()=>{await activate(await local('A'));xdo('mousemove','22','52','sleep','0.2','click','1');await delay(500);await activate(settings);const before=await snap('13-pre-restart');await stop();await delay(700);await start();const ts=await targets();inspector=ts.find(t=>t.url.includes('tab-strip-internals'));settings=ts.find(t=>t.url.includes('settings/'));assert(inspector&&settings,'Session auxiliary tabs not restored');const bg=ts.find(t=>t.type==='background_page');const restoredActive=await evalOn(bg,'new Promise(r=>chrome.tabs.query({active:true},r))');results.restoredActive=restoredActive;eq(restoredActive[0].url,'chrome://settings/appearance');await activate(inspector);await delay(1200);await activate(settings);await delay(500);const after=await snap('14-post-restart');eq(compact(after),compact(before));eq(active(after),active(before));const w=execFileSync(XDO,['search','--onlyvisible','--class','helium'],{env:{...process.env,DISPLAY:':98'}}).toString().trim().split('\n')[0];xdo('windowmove',w,'0','0');xdo('windowfocus',w);xdo('mousemove','90','86','click','1');await delay(300);eq(active(await snap('15-restored-collapse-row-check')),'DebugUI TabStrip')});
+await test('close collapsed tree/reopen restores whole hierarchy',async()=>{await activate(await local('A'));xdo('mousemove','187','52','click','1');await delay(500);const closed=await snap('16-tree-closed');assert(!JSON.stringify(compact(closed)).includes('PR1832'),'Collapsed-tree close left subtree tabs');xdo('key','ctrl+shift+t');await delay(800);eq(compact(await snap('17-tree-reopened')),original)});
+await test('close tree/reopen retains collapsed rows',async()=>{xdo('mousemove','90','86','click','1');await delay(300);eq(active(await snap('18-reopened-collapse-row-check')),'DebugUI TabStrip')});
+results.finished=new Date().toISOString();console.log(JSON.stringify(results.cases,null,2));save();
+}
+try{await main()}catch(e){results.fatal=e.stack;save();console.error(e)}
+if(process.env.PROBE!=='1'){try{await stop()}catch{}xv?.kill()}else await new Promise(()=>{});
+
+process.exitCode = results.fatal || results.cases.some(c => c.status === 'fail') ? 1 : 0;
