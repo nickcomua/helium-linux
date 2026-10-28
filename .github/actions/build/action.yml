@@ -10,6 +10,10 @@ inputs:
     description: "If 'true', this job is the last and should fail if it runs out of time"
     required: false
     default: "false"
+  cache_run_id:
+    description: "Earlier run whose build-cache artifact should be imported instead of this run's fresh tree."
+    required: false
+    default: ""
 
 outputs:
   status:
@@ -34,8 +38,17 @@ runs:
       shell: bash
       run: bash ./.github/scripts/cleanup.sh
 
+    - name: Download resumed build cache
+      if: ${{ inputs.cache_run_id != '' }}
+      uses: actions/download-artifact@v4
+      with:
+        name: build-cache-${{ env.ARCH }}
+        path: .github/cache/
+        run-id: ${{ inputs.cache_run_id }}
+        github-token: ${{ github.token }}
+
     - name: Download build cache
-      if: ${{ inputs.prepare-only != 'true' }}
+      if: ${{ inputs.prepare-only != 'true' && inputs.cache_run_id == '' }}
       uses: actions/download-artifact@v4
       with:
         name: build-cache-${{ env.ARCH }}
