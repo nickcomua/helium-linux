@@ -3,6 +3,13 @@ set -euxo pipefail
 
 . "/repo/scripts/shared.sh"
 
+dump_sccache_stats() {
+    if command -v sccache >/dev/null 2>&1; then
+        sccache --show-stats || true
+    fi
+}
+trap dump_sccache_stats EXIT
+
 setup_environment
 
 if [ "$_runner_environment" = "github-hosted" ]; then

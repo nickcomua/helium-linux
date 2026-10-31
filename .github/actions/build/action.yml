@@ -49,6 +49,13 @@ runs:
     - name: Run sccache-cache
       uses: mozilla-actions/sccache-action@v0.0.9
 
+    - name: Start sccache server
+      if: runner.environment == 'github-hosted'
+      shell: bash
+      env:
+        _runner_environment: ${{ runner.environment }}
+      run: bash ./.github/scripts/start-sccache.sh
+
     - name: Build
       id: build
       shell: bash

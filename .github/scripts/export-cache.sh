@@ -10,4 +10,6 @@ cd "$_base_dir"
 
 mkdir -p "$(dirname "$_cache_tar")"
 rm -rf "build/download_cache"
-tar -cf - "build" | zstd -f -T0 -3 -o "${_cache_tar}"
+# pax stores nanosecond mtimes. ustar/gnu truncate to whole seconds, and
+# siso then treats every object as stale ("output mtime older than log").
+tar --format=pax -cf - "build" | zstd -f -T0 -3 -o "${_cache_tar}"

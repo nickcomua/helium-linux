@@ -51,16 +51,25 @@ done
 _build_start=$(date)
 echo "docker build start at ${_build_start}"
 
-_gha_mount=()
-
+# Compiles run inside the container, but the sccache daemon that the
+# post-job stats query is on the host at 127.0.0.1:4226. Use that same
+# binary so the client protocol matches the daemon.
+_docker_run=(docker run --rm -i)
+if [ -n "${CI:-}" ] && [ "${_runner_environment:-}" = "github-hosted" ]; then
+    _docker_run+=(--network=host)
+fi
+_docker_run+=(
+    -u "${_user_uidgid}"
+    -v "${_base_dir}:/repo"
+)
+if [ -n "${SCCACHE_PATH:-}" ] && [ -x "${SCCACHE_PATH}" ]; then
+    _docker_run+=(-v "${SCCACHE_PATH}:/usr/bin/sccache:ro")
+fi
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
-    _gha_mount=(-v "$GITHUB_OUTPUT:$GITHUB_OUTPUT")
+    _docker_run+=(-v "$GITHUB_OUTPUT:$GITHUB_OUTPUT")
 fi
 
-cd "${_base_dir}" && docker run --rm -i \
-    -u "${_user_uidgid}" \
-    -v "${_base_dir}:/repo" \
-    "${_gha_mount[@]}" \
+cd "${_base_dir}" && "${_docker_run[@]}" \
     "${_extra_env[@]}" "${_image}" bash "${_entrypoint}" "$@"
 
 _build_end=$(date)
