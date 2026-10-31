@@ -51,16 +51,18 @@ done
 _build_start=$(date)
 echo "docker build start at ${_build_start}"
 
-_gha_mount=()
-
+# The sccache daemon has to run in this container. A host daemon cannot
+# execute the container's clang, and --network=host made every compile
+# fail with "failed to fill whole buffer".
+_docker_run=(docker run --rm -i
+    -u "${_user_uidgid}"
+    -v "${_base_dir}:/repo"
+)
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
-    _gha_mount=(-v "$GITHUB_OUTPUT:$GITHUB_OUTPUT")
+    _docker_run+=(-v "$GITHUB_OUTPUT:$GITHUB_OUTPUT")
 fi
 
-cd "${_base_dir}" && docker run --rm -i \
-    -u "${_user_uidgid}" \
-    -v "${_base_dir}:/repo" \
-    "${_gha_mount[@]}" \
+cd "${_base_dir}" && "${_docker_run[@]}" \
     "${_extra_env[@]}" "${_image}" bash "${_entrypoint}" "$@"
 
 _build_end=$(date)

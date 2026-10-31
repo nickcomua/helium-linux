@@ -12,16 +12,22 @@ on:
         type: boolean
         description: "Create a release after build is done"
         default: false
+      arch:
+        required: false
+        description: "JSON array of architectures to build"
+        default: '["arm64", "x86_64"]'
+        type: string
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   build:
     name: Build Helium binaries and AppImage
     strategy:
       matrix:
-        arch: [arm64, x86_64]
+        arch: ${{ fromJson(inputs.arch) }}
       max-parallel: 2
       fail-fast: true
     uses: ./.github/workflows/build-steps.yml

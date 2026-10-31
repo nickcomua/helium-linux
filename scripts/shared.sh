@@ -120,7 +120,14 @@ write_gn_args() {
     if [ -n "${SISO_REAPI_ADDRESS:-}" ]; then
         echo 'use_remoteexec = true' | tee -a "${_out_dir}/args.gn"
     elif command -v sccache >/dev/null 2>&1 && env | grep -q ^SCCACHE; then
-        echo 'cc_wrapper = "sccache"' | tee -a "${_out_dir}/args.gn"
+        # sccache 0.19 will not cache Chromium's -Xclang module flags.
+        # The wrapper drops the dummy ones so the GitHub Actions backend
+        # can store and hit objects. See sccache-wrap.sh.
+        if [ -x "${_root_dir}/.github/scripts/sccache-wrap.sh" ]; then
+            echo "cc_wrapper = \"${_root_dir}/.github/scripts/sccache-wrap.sh\"" | tee -a "${_out_dir}/args.gn"
+        else
+            echo 'cc_wrapper = "sccache"' | tee -a "${_out_dir}/args.gn"
+        fi
     elif command -v ccache >/dev/null; then
         echo 'cc_wrapper = "ccache"' | tee -a "${_out_dir}/args.gn"
     fi
