@@ -1,11 +1,6 @@
 name: Build Linux release
 # Fork Actions registration.
 on:
-  # Temporary: the integration token cannot call workflow_dispatch.
-  # Removed once a run is queued. Push of this branch builds x86_64 only.
-  push:
-    branches:
-      - cursor/fix-ci-build-cache-1e29
   workflow_dispatch:
     inputs:
       runner:
@@ -32,14 +27,14 @@ jobs:
     name: Build Helium binaries and AppImage
     strategy:
       matrix:
-        arch: ${{ github.event_name == 'workflow_dispatch' && fromJson(inputs.arch) || fromJson('["x86_64"]') }}
+        arch: ${{ fromJson(inputs.arch) }}
       max-parallel: 2
       fail-fast: true
     uses: ./.github/workflows/build-steps.yml
     secrets: inherit
     with:
       arch: ${{ matrix.arch }}
-      runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner || 'ubuntu-latest' }}
+      runs-on: ${{ inputs.runner }}
 
   release:
     name: Create release
