@@ -7,3 +7,4 @@ helium/linux/add-middle-click-paste-flag.patch
 helium/linux/add-error-for-missing-desktop-file.patch
 helium/linux/disable-tab-strokes.patch
 helium/core/nested-tabs.patch
+helium/core/close-tab-and-children-pref.patch
