@@ -5,6 +5,7 @@ set -euxo pipefail
 
 dump_sccache_stats() {
     if command -v sccache >/dev/null 2>&1; then
+        echo "=== sccache stats ==="
         sccache --show-stats || true
     fi
 }
@@ -35,6 +36,12 @@ else
 
     configure_remoteexec
     export SISO_PATH="${_src_dir}/third_party/siso/cipd/siso"
+
+    if [ "$_runner_environment" = "github-hosted" ]; then
+        sccache --start-server
+        echo "=== sccache server ==="
+        sccache --show-stats
+    fi
 
     set +e
     timeout -k 5m -s INT "${_task_timeout}"s \

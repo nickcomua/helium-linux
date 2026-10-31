@@ -51,20 +51,13 @@ done
 _build_start=$(date)
 echo "docker build start at ${_build_start}"
 
-# Compiles run inside the container, but the sccache daemon that the
-# post-job stats query is on the host at 127.0.0.1:4226. Use that same
-# binary so the client protocol matches the daemon.
-_docker_run=(docker run --rm -i)
-if [ -n "${CI:-}" ] && [ "${_runner_environment:-}" = "github-hosted" ]; then
-    _docker_run+=(--network=host)
-fi
-_docker_run+=(
+# The sccache daemon has to run in this container. A host daemon cannot
+# execute the container's clang, and --network=host made every compile
+# fail with "failed to fill whole buffer".
+_docker_run=(docker run --rm -i
     -u "${_user_uidgid}"
     -v "${_base_dir}:/repo"
 )
-if [ -n "${SCCACHE_PATH:-}" ] && [ -x "${SCCACHE_PATH}" ]; then
-    _docker_run+=(-v "${SCCACHE_PATH}:/usr/bin/sccache:ro")
-fi
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
     _docker_run+=(-v "$GITHUB_OUTPUT:$GITHUB_OUTPUT")
 fi
