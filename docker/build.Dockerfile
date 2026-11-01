@@ -21,7 +21,10 @@ RUN apt-get -y install bison ca-certificates curl debhelper desktop-file-utils f
 RUN apt-get -y install git python3-pillow python3-requests rsync sudo vim
 
 # install sccache
-ARG SCCACHE_VERSION=0.10.0
+# 0.10.0 only speaks the retired ACTIONS_CACHE_URL API. Hosted runners
+# expose ACTIONS_RESULTS_URL, so that sccache silently fell back to an
+# ephemeral local disk and recorded no hits.
+ARG SCCACHE_VERSION=0.19.0
 
 RUN curl --fail -Lo /tmp/sccache.tar.gz \
     https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl.tar.gz
