@@ -351,18 +351,6 @@ Index: src/chrome/browser/sessions/session_service_base.h
                                     bool is_pinned,
                                     IdToRange* tab_to_available_range);
  
-Index: src/chrome/browser/ui/android/tab_model/tab_collection_tab_model_impl.cc
-===================================================================
---- src.orig/chrome/browser/ui/android/tab_model/tab_collection_tab_model_impl.cc
-+++ src/chrome/browser/ui/android/tab_model/tab_collection_tab_model_impl.cc
-@@ -259,6 +259,7 @@ int TabCollectionTabModelImpl::MoveTabGr
-   tab_strip_collection_->MoveTabsRecursive(
-       tab_indices, static_cast<size_t>(to_index),
-       /*new_group_id=*/std::nullopt,
-+      std::nullopt,
-       /*new_pinned_state=*/false, kRetainCollectionTypes);
- 
-   return base::checked_cast<int>(to_index);
 Index: src/chrome/browser/ui/browser.cc
 ===================================================================
 --- src.orig/chrome/browser/ui/browser.cc
@@ -1135,7 +1123,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  #include "base/dcheck_is_on.h"
  #include "base/debug/crash_logging.h"
  #include "base/feature_list.h"
-@@ -97,6 +101,12 @@
+@@ -105,6 +109,12 @@
  #include "components/prefs/pref_service.h"
  #include "components/reading_list/core/reading_list_model.h"
  #include "components/sessions/core/session_id.h"
@@ -1148,7 +1136,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  #include "components/split_tabs/split_tab_id.h"
  #include "components/split_tabs/split_tab_visual_data.h"
  #include "components/tab_groups/tab_group_id.h"
-@@ -224,8 +234,8 @@ base::WeakPtr<performance_manager::PageN
+@@ -235,8 +245,8 @@
    }
  
    base::WeakPtr<performance_manager::PageNode> page_node =
@@ -1159,7 +1147,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  
    if (!page_node) {
      return nullptr;
-@@ -263,7 +273,8 @@ std::unique_ptr<TabGroupModel> TabGroupM
+@@ -274,7 +284,8 @@
  
  DetachedTabCollection::DetachedTabCollection(
      std::variant<std::unique_ptr<tabs::TabGroupTabCollection>,
@@ -1169,7 +1157,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
      std::optional<int> active_index,
      bool pinned)
      : collection_(std::move(collection)),
-@@ -321,6 +332,10 @@ struct TabStripModel::DetachNotification
+@@ -332,6 +343,10 @@
  ///////////////////////////////////////////////////////////////////////////////
  // TabStripModel, public:
  
@@ -1180,7 +1168,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  constexpr int TabStripModel::kNoTab;
  
  TabStripModel::TabStripModel(TabStripModelDelegate* delegate,
-@@ -504,6 +519,10 @@ TabStripModel::DetachTabsAndCollectionsF
+@@ -515,6 +530,10 @@
      const std::vector<int>& tab_indices) {
    std::vector<tab_groups::TabGroupId> groups_to_move =
        GetGroupsDestroyedFromRemovingIndices(tab_indices);
@@ -1191,7 +1179,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  
    // Ensures that ephemeral groups can't be moved to another tab strip, which
    // could cause accidental promotion to a permanent group.
-@@ -524,11 +543,25 @@ TabStripModel::DetachTabsAndCollectionsF
+@@ -535,11 +554,25 @@
    for (const tabs::TabInterface* tab_interface : tab_interfaces) {
      const int index = GetIndexOfTab(tab_interface);
      if (index == TabStripModel::kNoTab) {
@@ -1218,7 +1206,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
      const std::optional<tab_groups::TabGroupId> group =
          tab_interface->GetGroup();
      if (std::find(groups_to_move.begin(), groups_to_move.end(), group) !=
-@@ -631,6 +664,43 @@ TabStripModel::DetachTabGroupForInsertio
+@@ -642,6 +675,43 @@
  }
  
  std::unique_ptr<DetachedTabCollection>
@@ -1262,7 +1250,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  TabStripModel::DetachSplitTabForInsertion(
      const split_tabs::SplitTabId split_id) {
    ReentrancyCheck reentrancy_check(&reentrancy_guard_);
-@@ -744,6 +814,40 @@ gfx::Range TabStripModel::InsertDetached
+@@ -755,6 +825,40 @@
                       base::Unretained(this), group_collection));
  }
  
@@ -1303,7 +1291,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  tabs::TabModel* TabStripModel::GetTabModelAtIndex(int index) const {
    return static_cast<tabs::TabModel*>(GetTabAtIndex(index));
  }
-@@ -1136,7 +1240,8 @@ int TabStripModel::MoveWebContentsAt(
+@@ -1147,7 +1251,8 @@
  
  void TabStripModel::MoveSelectedTabsTo(
      int index,
@@ -1313,7 +1301,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
    ReentrancyCheck reentrancy_check(&reentrancy_guard_);
  
    const int pinned_tab_count = IndexOfFirstNonPinnedTab();
-@@ -1159,7 +1264,7 @@ void TabStripModel::MoveSelectedTabsTo(
+@@ -1170,7 +1275,7 @@
                   count() - static_cast<int>(unpinned_selected_indices.size()));
  
    MoveTabsToIndexImpl(unpinned_selected_indices, first_unpinned_index,
@@ -1322,7 +1310,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  }
  
  void TabStripModel::MoveGroupTo(const tab_groups::TabGroupId& group,
-@@ -1224,7 +1329,8 @@ void TabStripModel::MoveSplitTo(
+@@ -1235,7 +1340,8 @@
        tab_indices, to_index,
        base::BindOnce(&tabs::TabStripCollection::MoveTabsRecursive,
                       base::Unretained(contents_data_.get()), tab_indices,
@@ -1332,7 +1320,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  }
  
  void TabStripModel::MoveGroupToImpl(const tab_groups::TabGroupId& group,
-@@ -1238,14 +1344,16 @@ void TabStripModel::MoveGroupToImpl(cons
+@@ -1249,14 +1355,16 @@
    }
  
    static constexpr tabs::TabCollection::TypeEnumSet kRetainCollectionTypes = {
@@ -1351,7 +1339,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  
    NotifyTabGroupMoved(group);
  }
-@@ -1867,6 +1975,10 @@ void TabStripModel::AddTab(std::unique_p
+@@ -1876,6 +1984,10 @@
    }
    tabs::TabModel* tab_ptr = tab.get();
    tab->OnAddedToModel(this);
@@ -1362,7 +1350,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
    InsertTabAtImpl(index, std::move(tab),
                    add_types | (inherit_opener ? ADD_INHERIT_OPENER : 0), group);
    // Reset the index, just in case insert ended up moving it on us.
-@@ -1898,6 +2010,22 @@ void TabStripModel::AddTab(std::unique_p
+@@ -1907,6 +2019,22 @@
    }
  }
  
@@ -1385,7 +1373,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  void TabStripModel::CloseSelectedTabs() {
    auto get_tabs = base::BindRepeating(
        [](const tabs::TabStripModelSelectionState* selection_model) {
-@@ -2268,6 +2396,1003 @@ void TabStripModel::PromoteEphemeralTabG
+@@ -2276,6 +2404,1003 @@
    }
  }
  
@@ -2389,7 +2377,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  // Returns the ID of the group that is focused. If no group is focused,
  // returns nullopt.
  std::optional<tab_groups::TabGroupId> TabStripModel::GetFocusedGroup() const {
-@@ -2684,6 +3809,49 @@ void TabStripModel::NotifySplitTabAttach
+@@ -2714,6 +3839,49 @@
        *GetSplitData(split_id)->visual_data());
  }
  
@@ -2439,7 +2427,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  TabStripModel::TabIterator TabStripModel::begin() const {
    return contents_data_->begin();
  }
-@@ -2804,8 +3972,14 @@ bool TabStripModel::IsContextMenuCommand
+@@ -2835,8 +4003,14 @@
  
      case CommandAddToSplit:
      case CommandSwapWithActiveSplit:
@@ -2456,7 +2444,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  
      case CommandRemoveFromGroup:
        return SupportsTabGroups();
-@@ -3532,6 +4706,22 @@ TabStripModel::GetGroupsDestroyedFromRem
+@@ -3627,6 +4801,22 @@
    return destroyed_groups;
  }
  
@@ -2477,24 +2465,9 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
 +}
 +
  void TabStripModel::ExecuteCloseTabs(
-     base::RepeatingCallback<std::vector<tabs::TabInterface*>()>
-         get_tabs_to_close,
-@@ -3952,10 +5142,10 @@ std::vector<int> TabStripModel::GetIndic
-                                            .rbegin()
-                                     : index;
-   } else if (id == CommandCloseTabsToLeft) {
--    first_unclosed_tab =
--        is_selected
--            ? *selection_model_.GetListSelectionModel().selected_indices().begin()
--            : index;
-+    first_unclosed_tab = is_selected ? *selection_model_.GetListSelectionModel()
-+                                            .selected_indices()
-+                                            .begin()
-+                                     : index;
-   }
- 
-   // If the tab that the context menu command is invoked on is not selected and
-@@ -4182,8 +5372,92 @@ tabs::TabInterface* TabStripModel::GetTa
+     base::RepeatingCallback<std::vector<tabs::TabHandle>()> get_tabs_to_close,
+     uint32_t close_types) {
+@@ -4260,8 +5450,92 @@
  
  void TabStripModel::CloseTabs(base::span<content::WebContents* const> items,
                                uint32_t close_types) {
@@ -2588,7 +2561,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
      tabs::TabInterface* tab = GetTabForWebContents(contents);
      if (IsTabClosable(tab)) {
        filtered_items.push_back(contents);
-@@ -4608,13 +5882,21 @@ void TabStripModel::MoveTabRelative(TabR
+@@ -4680,13 +5954,21 @@
    tabs::TabInterface* active_tab = GetTabAtIndex(active_tab_index);
  
    // The range of indices being moved. This will either be the active tab, or
@@ -2616,7 +2589,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  
    // Calculate the target index the tabs needs to moved to. This will be the
    // destination index of the current tab at moving_index_range.start().
-@@ -4628,6 +5910,53 @@ void TabStripModel::MoveTabRelative(TabR
+@@ -4700,6 +5982,53 @@
      if (tabs::TabInterface* neighbor = GetTabAtIndex(neighbor_index);
          neighbor->IsSplit()) {
        offset = GetIndexRangeOfSplit(neighbor->GetSplit().value()).length();
@@ -2670,7 +2643,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
      }
      target_index +=
          (direction == TabRelativeDirection::kNext ? 1 : -1) * offset;
-@@ -4673,6 +6002,16 @@ void TabStripModel::MoveTabRelative(TabR
+@@ -4745,6 +6074,16 @@
        }
      }
    }
@@ -2687,7 +2660,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
    MoveTabsToIndexImpl(moving_index_range.ToIntVector(), target_index,
                        target_group);
  }
-@@ -4793,6 +6132,9 @@ split_tabs::SplitTabId TabStripModel::Ad
+@@ -4865,6 +6204,9 @@
      int pivot_index,
      split_tabs::SplitTabVisualData visual_data,
      SplitTabChange::SplitTabAddReason reason) {
@@ -2697,7 +2670,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
    std::vector<tabs::TabInterface*> tabs = {};
    for (int i : indices) {
      tabs::TabInterface* tab = GetTabAtIndex(i);
-@@ -4800,10 +6142,26 @@ split_tabs::SplitTabId TabStripModel::Ad
+@@ -4872,10 +6214,26 @@
      tabs.push_back(tab);
    }
  
@@ -2727,7 +2700,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  
    contents_data_->CreateSplit(split_id, tabs, visual_data);
    selection_model_.InvalidateListSelectionModel(base::PassKey<TabStripModel>());
-@@ -5025,6 +6383,16 @@ void TabStripModel::AddToNewGroupImpl(co
+@@ -5099,6 +6457,16 @@
        continue;
      }
  
@@ -2744,7 +2717,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
      // Otherwise, grouping is valid if the destination is not in the middle of a
      // different group.
      std::optional<tab_groups::TabGroupId> destination_group =
-@@ -5103,6 +6471,64 @@ void TabStripModel::AddToExistingGroupIm
+@@ -5177,6 +6545,64 @@
    }
  }
  
@@ -2809,7 +2782,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  void TabStripModel::MoveTabsAndSetPropertiesImpl(
      const std::vector<int>& indices,
      int destination_index,
-@@ -5113,24 +6539,19 @@ void TabStripModel::MoveTabsAndSetProper
+@@ -5187,24 +6613,19 @@
    }
  
    static constexpr tabs::TabCollection::TypeEnumSet kRetainCollectionTypes = {
@@ -2839,7 +2812,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  }
  
  void TabStripModel::AddToReadLaterImpl(const std::vector<int>& indices) {
-@@ -5199,6 +6620,23 @@ std::unique_ptr<tabs::TabModel> TabStrip
+@@ -5273,6 +6694,23 @@
      tabs::TabInterface::DetachReason tab_detach_reason,
      int index_before_any_removals) {
    tabs::TabModel* const tab_to_remove = GetTabModelAtIndex(index);
@@ -2863,7 +2836,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
    const std::optional<tab_groups::TabGroupId> old_group =
        tab_to_remove->GetGroup();
    std::optional<int> next_selected_index =
-@@ -5259,6 +6697,23 @@ std::unique_ptr<tabs::TabModel> TabStrip
+@@ -5333,6 +6771,23 @@
                           std::nullopt);
    }
  
@@ -2887,7 +2860,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
    return old_data;
  }
  
-@@ -5351,13 +6806,15 @@ void TabStripModel::MoveTabToIndexImpl(
+@@ -5425,13 +6880,15 @@
  void TabStripModel::MoveTabsToIndexImpl(
      const std::vector<int>& tab_indices,
      int destination_index,
@@ -2905,7 +2878,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  
    const int pinned_tab_count = IndexOfFirstNonPinnedTab();
    const bool pin = IsTabPinned(tab_indices[0]);
-@@ -5371,12 +6828,116 @@ void TabStripModel::MoveTabsToIndexImpl(
+@@ -5445,12 +6902,116 @@
    CHECK(all_tabs_pinned || all_tabs_unpinned);
    CHECK(std::ranges::is_sorted(tab_indices));
  
@@ -3023,7 +2996,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  }
  
  void TabStripModel::TabGroupStateChanged(
-@@ -5485,6 +7046,10 @@ void TabStripModel::CompleteModelUpdateT
+@@ -5559,6 +7120,10 @@
  
    // Send the notifications for the root collection.
    contents_data_->DispatchPendingNotifications();
@@ -3034,7 +3007,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
  
    if (empty()) {
      return;
-@@ -5648,13 +7213,31 @@ std::vector<std::pair<int, int>> TabStri
+@@ -5722,13 +7287,31 @@
  std::vector<TabStripModel::MoveNotification>
  TabStripModel::PrepareTabsToMoveToIndex(const std::vector<int>& tab_indices,
                                          int destination_index) {
@@ -3068,7 +3041,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
    for (std::pair<int, int> move : moved_indices) {
      if (move.first != move.second) {
        FixOpeners(move.first);
-@@ -5729,6 +7312,14 @@ void TabStripModel::SetTabsPinned(std::v
+@@ -5803,6 +7386,14 @@
  }
  
  int TabStripModel::SetTabPinnedImpl(int index, bool pinned) {
@@ -3083,7 +3056,7 @@ Index: src/chrome/browser/ui/tabs/tab_strip_model.cc
    if (pinned && selection_model_.focused_group().has_value()) {
      had_pinned_tabs_in_focus_session_ = true;
    }
-@@ -5760,7 +7351,7 @@ void TabStripModel::SetSplitPinnedImpl(t
+@@ -5834,7 +7425,7 @@
        tab_indices, destination_index,
        base::BindOnce(&tabs::TabStripCollection::MoveTabsRecursive,
                       base::Unretained(contents_data_.get()), tab_indices,
@@ -4408,36 +4381,30 @@ Index: src/chrome/browser/ui/views/tabs/dragging/drag_session_data.cc
 ===================================================================
 --- src.orig/chrome/browser/ui/views/tabs/dragging/drag_session_data.cc
 +++ src/chrome/browser/ui/views/tabs/dragging/drag_session_data.cc
-@@ -30,6 +30,11 @@ std::optional<int> ViewModelIndex(TabDra
- TabDragData::TabDragData(TabDragContext* source_context, TabSlotView* view)
-     : source_model_index(ViewModelIndex(source_context, view)),
-       view_type(view->GetTabSlotViewType()) {
-+  // Pre-populate so the first GetViewsMatchingDraggedContents (which runs
-+  // before AttachImpl) can resolve the NESTED's slot view; otherwise group
-+  // drags containing a NESTED yield an empty views vector and cancel.
+@@ -28,6 +28,10 @@
+ 
+ TabDragData::TabDragData(TabDragContext* source_context, views::View* view)
+     : source_model_index(ViewModelIndex(source_context, view)) {
++  // Captured before drag layout runs. GetViewsMatchingDraggedContents reads
++  // this on the first move, before AttachImpl has filled the slot back in.
 +  attached_view = view;
 +  initial_slot_x_in_screen = view->GetBoundsInScreen().x();
+   std::optional<tab_groups::TabGroupId> tab_group_id;
    if (source_model_index.has_value()) {
      contents = source_context->GetContentsForTab(view);
-     pinned = source_context->GetTabStripModel()->IsTabPinned(
 Index: src/chrome/browser/ui/views/tabs/dragging/drag_session_data.h
 ===================================================================
 --- src.orig/chrome/browser/ui/views/tabs/dragging/drag_session_data.h
 +++ src/chrome/browser/ui/views/tabs/dragging/drag_session_data.h
-@@ -7,10 +7,12 @@
- 
- #include <limits>
- #include <memory>
-+#include <optional>
- #include <vector>
+@@ -13,6 +13,7 @@
  
  #include "base/memory/raw_ptr.h"
- #include "chrome/browser/ui/views/tabs/tab_slot_view.h"
+ #include "base/time/time.h"
 +#include "components/nested_tabs/nested_tab_id.h"
  #include "components/tab_groups/tab_group_id.h"
  #include "components/tab_groups/tab_group_visual_data.h"
  #include "ui/gfx/geometry/vector2d_f.h"
-@@ -41,6 +43,21 @@ struct GroupHeaderDragData final {
+@@ -46,6 +47,21 @@
          active_tab_index_within_group(active_tab_index_within_group) {}
  };
  
@@ -4458,10 +4425,10 @@ Index: src/chrome/browser/ui/views/tabs/dragging/drag_session_data.h
 +
  // Stores the data associated with a single tab that is being dragged.
  struct TabDragData final {
-   TabDragData(TabDragContext* source_context, TabSlotView* view);
-@@ -62,6 +79,9 @@ struct TabDragData final {
+   TabDragData(TabDragContext* source_context, views::View* view);
+@@ -68,6 +84,9 @@
    // If attached this is the view in `attached_context_`.
-   raw_ptr<TabSlotView> attached_view = nullptr;
+   raw_ptr<views::View> attached_view = nullptr;
  
 +  // Immutable screen anchor captured before drag layout changes.
 +  int initial_slot_x_in_screen = 0;
@@ -4469,7 +4436,7 @@ Index: src/chrome/browser/ui/views/tabs/dragging/drag_session_data.h
    // Is the tab pinned?
    bool pinned = false;
  
-@@ -93,6 +113,8 @@ struct DragSessionData final {
+@@ -99,6 +118,8 @@
    // being dragged together.
    std::optional<GroupHeaderDragData> group_header_drag_data_;
  
@@ -4478,7 +4445,7 @@ Index: src/chrome/browser/ui/views/tabs/dragging/drag_session_data.h
    // Groups that are being dragged, including header-only drags (in which case
    // the size of this will be one) or by selecting all tabs in a group.
    std::set<tab_groups::TabGroupId> dragging_groups;
-@@ -114,6 +136,10 @@ struct DragSessionData final {
+@@ -120,6 +141,10 @@
                 : std::nullopt;
    }
  
@@ -4489,11 +4456,48 @@ Index: src/chrome/browser/ui/views/tabs/dragging/drag_session_data.h
    // Convenience for getting the TabDragData corresponding to the source view
    // that the user started dragging.
    const TabDragData* source_view_drag_data() const {
+Index: src/chrome/browser/ui/views/tabs/dragging/tab_drag_context.h
+===================================================================
+--- src.orig/chrome/browser/ui/views/tabs/dragging/tab_drag_context.h
++++ src/chrome/browser/ui/views/tabs/dragging/tab_drag_context.h
+@@ -11,6 +11,7 @@
+ 
+ #include "base/functional/callback_forward.h"
+ #include "base/memory/raw_ptr.h"
++#include "components/tabs/public/tab_interface.h"
+ #include "ui/base/metadata/metadata_header_macros.h"
+ #include "ui/base/models/list_selection_model.h"
+ #include "ui/gfx/geometry/rect.h"
+@@ -142,6 +143,16 @@
+ 
+   // Returns the tab drag controller owned by this delegate, or null if none.
+   virtual TabDragController* GetDragController() = 0;
++  virtual const TabDragController* GetDragController() const {
++    return const_cast<TabDragContext*>(this)->GetDragController();
++  }
++
++  // Records the tab currently hovered as a nest target. Pass nullopt to clear.
++  virtual void SetPendingNestIntoTarget(
++      std::optional<tabs::TabHandle> target) {}
++
++  // Called only for a successful drop, never for cancellation or teardown.
++  virtual void AcceptPendingNestDrop() {}
+ 
+   // Takes ownership of `controller`.
+   virtual void OwnDragController(
 Index: src/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
 ===================================================================
 --- src.orig/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
 +++ src/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
-@@ -61,6 +61,8 @@
+@@ -44,6 +44,7 @@
+ #include "chrome/browser/ui/ui_features.h"
+ #include "chrome/browser/ui/views/frame/browser_view.h"
+ #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
++#include "chrome/browser/ui/views/tabs/common/tab_view.h"
+ #include "chrome/browser/ui/views/tabs/dragging/drag_session_data.h"
+ #include "chrome/browser/ui/views/tabs/dragging/tab_drag_context.h"
+ #include "chrome/browser/ui/views/tabs/dragging/tab_drag_target.h"
+@@ -59,6 +60,8 @@
  #include "components/tab_groups/tab_group_id.h"
  #include "components/tabs/public/split_tab_data.h"
  #include "components/tabs/public/tab_group.h"
@@ -4502,34 +4506,46 @@ Index: src/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
  #include "components/tabs/public/tab_interface.h"
  #include "components/viz/common/frame_sinks/copy_output_result.h"
  #include "content/public/browser/render_widget_host_view.h"
-@@ -529,8 +531,24 @@ TabDragController::Liveness TabDragContr
+@@ -84,6 +87,7 @@
+ #include "ui/views/interaction/element_tracker_views.h"
+ #include "ui/views/view.h"
+ #include "ui/views/view_tracker.h"
++#include "ui/views/view_utils.h"
+ #include "ui/views/widget/native_widget.h"
+ #include "ui/views/widget/widget.h"
+ 
+@@ -538,7 +542,29 @@
  
    const TabStripModel* tab_strip_model =
        ref->source_context_->GetTabStripModel();
--  if (source_view->GetTabSlotViewType() ==
--      TabSlotView::ViewType::kTabGroupHeader) {
-+  // source_view->nested() may be a stale id (e.g., NESTED collapsed before
-+  // this drag started); fall through to non-nested handling in that case.
-+  const nested_tabs::NestedTabData* ntd =
-+      source_view->nested() ? tab_strip_model->GetNestingData(
-+                                  *source_view->nested())
-+                            : nullptr;
-+  if (ntd) {
-+    const nested_tabs::NestedTabId nested = *source_view->nested();
-+    gfx::Range nested_range = ntd->GetIndexRange();
-+    const int active = tab_strip_model->active_index();
-+    const int active_tab_index_within_nested =
-+        nested_range.Contains(gfx::Range(active))
-+            ? active - static_cast<int>(nested_range.GetMin())
-+            : 0;
-+    ref->drag_data_.nested_drag_data_ = std::make_optional<NestedDragData>(
-+        nested, active_tab_index_within_nested);
-+  } else if (source_view->GetTabSlotViewType() ==
-+             TabSlotView::ViewType::kTabGroupHeader) {
-     const tab_groups::TabGroupId group_id = source_view->group().value();
+-  if (std::optional<tab_groups::TabGroupId> source_header_group_id =
++  bool started_nested_drag = false;
++  if (auto* tab_view = views::AsViewClass<TabView>(source_view)) {
++    const tabs::TabInterface* owner = tab_view->GetTabInterface();
++    if (owner) {
++      if (auto nested = tab_strip_model->GetOwnedNestedId(owner)) {
++        // A stale id (the nest collapsed before this drag) falls through to
++        // ordinary tab handling.
++        if (const auto* nesting = tab_strip_model->GetNestingData(*nested)) {
++          gfx::Range nested_range = nesting->GetIndexRange();
++          const int active = tab_strip_model->active_index();
++          const int active_tab_index_within_nested =
++              nested_range.Contains(gfx::Range(static_cast<uint32_t>(active)))
++                  ? active - static_cast<int>(nested_range.GetMin())
++                  : 0;
++          ref->drag_data_.nested_drag_data_ = std::make_optional<NestedDragData>(
++              *nested, active_tab_index_within_nested);
++          started_nested_drag = true;
++        }
++      }
++    }
++  }
++  if (!started_nested_drag &&
++      std::optional<tab_groups::TabGroupId> source_header_group_id =
+           source_context->GetTabGroupForHeader(source_view)) {
+     const tab_groups::TabGroupId group_id = *source_header_group_id;
      const std::optional<tab_groups::TabGroupId> active_group_id =
-         tab_strip_model->GetActiveTab()->GetGroup();
-@@ -576,6 +594,38 @@ TabDragController::Liveness TabDragContr
+@@ -585,6 +611,38 @@
          static_cast<float>(offset_from_source_view.y()) /
          source_view->height());
    }
@@ -4568,7 +4584,7 @@ Index: src/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
    ref->initial_selection_model_ = std::move(initial_selection_model);
  
    ref->window_finder_ = std::make_unique<WindowFinder>();
-@@ -1304,9 +1354,32 @@ void TabDragController::OnTabThumbnailAv
+@@ -1315,9 +1373,32 @@
    }
  }
  
@@ -4601,7 +4617,7 @@ Index: src/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
    CHECK(ShouldDragWindowUsingSystemDnD());
    CHECK(ui::ResourceBundle::HasSharedInstance());
    current_state_ = DragState::kDraggingUsingSystemDnD;
-@@ -1320,9 +1393,9 @@ TabDragController::Liveness TabDragContr
+@@ -1331,9 +1412,9 @@
  
    system_drag_and_drop_session_running_ = true;
  
@@ -4614,7 +4630,7 @@ Index: src/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
      // When dragging all of a window's tabs, we just hide that window instead of
      // creating a new hidden one. On some platforms (e.g. Wayland) the drag and
      // drop session must be started before hiding the window, so defer until the
-@@ -1573,6 +1646,12 @@ void TabDragController::AttachToNewConte
+@@ -1584,6 +1665,12 @@
          collection_indices =
              attached_context_->GetTabStripModel()->InsertDetachedTabGroupAt(
                  std::move(*detached_tab_collection), index);
@@ -4627,7 +4643,7 @@ Index: src/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
        } else {
          collection_indices =
              attached_context_->GetTabStripModel()->InsertDetachedSplitTabAt(
-@@ -1768,8 +1847,11 @@ void TabDragController::DetachAndAttachT
+@@ -1807,8 +1894,11 @@
  TabDragController::Liveness
  TabDragController::DetachIntoNewBrowserAndRunMoveLoop(
      gfx::Point point_in_screen) {
@@ -4641,7 +4657,7 @@ Index: src/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
      // All the tabs in a browser are being dragged but all the tabs weren't
      // initially being dragged. For this to happen the user would have to
      // start dragging a set of tabs, the other tabs close, then detach.
-@@ -1854,16 +1936,18 @@ TabDragController::DetachIntoNewBrowserA
+@@ -1893,16 +1983,18 @@
        can_release_capture_ ? ReleaseCapture::kReleaseCapture
                             : ReleaseCapture::kDontReleaseCapture;
  #endif
@@ -4666,31 +4682,7 @@ Index: src/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
    }
  
    if (attached_context_->GetPositioningDelegate()) {
-@@ -2047,7 +2131,8 @@ std::vector<TabSlotView*> TabDragControl
-         return {};
-       }
-       views.push_back(tab_view);
--    } else {
-+    } else if (tab_drag_datum.view_type ==
-+               TabSlotView::ViewType::kTabGroupHeader) {
-       // Return empty vector if the group is not present in the model.
-       if (!model->group_model()->ContainsTabGroup(
-               tab_drag_datum.tab_group_data->group_id)) {
-@@ -2058,6 +2143,13 @@ std::vector<TabSlotView*> TabDragControl
-           context->GetTabGroupHeader(tab_drag_datum.tab_group_data->group_id);
-       CHECK(header_view);
-       views.push_back(header_view);
-+    } else {
-+      // kNestedContainer: use the slot view captured at drag-init time;
-+      // model-side handling is routed via NestedDragData, not tab_drag_data_.
-+      if (!tab_drag_datum.attached_view) {
-+        return {};
-+      }
-+      views.push_back(tab_drag_datum.attached_view);
-     }
-   }
-   return views;
-@@ -2183,34 +2275,128 @@ void TabDragController::RevertDrag() {
+@@ -2226,34 +2318,118 @@
      }
    }
  
@@ -4698,7 +4690,7 @@ Index: src/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
 -  // each group or split has multiple entries in `tab_drag_data_`.
 -  for (size_t i = 0; i < drag_data_.tab_drag_data_.size();) {
 -    const TabDragData tab_data = drag_data_.tab_drag_data_[i];
--    if (tab_data.view_type == TabSlotView::ViewType::kTabGroupHeader) {
+-    if (tab_data.is_group_header) {
 -      RevertGroupAt(i);
 -      // Skip all the tabs in the group too.
 -      i += source_context_->GetTabStripModel()
@@ -4708,9 +4700,8 @@ Index: src/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
 -           1;
 -    } else {
 -      CHECK(tab_data.contents);
-+  // Native owner drags have ONE visual datum, not one datum per tab in
-+  // the moving subtree. Keep that subtree atomic during same-strip rollback;
-+  // flattening it would leave descendants outside RevertTabAt's moving set.
++  // An owner drag has one visual datum. The moving unit is the subtree.
++  // Flattening it here would revert descendants a second time.
 +  const bool revert_nested_owner =
 +      attached_context_ == source_context_ &&
 +      drag_data_.nested_drag_data_.has_value() &&
@@ -4738,8 +4729,6 @@ Index: src/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
 +      }
 +    }
 +  } else {
-+    // Per-tab reversion must not move a still-wrapped owner's entire subtree
-+    // and then attempt to revert its descendants a second time.
 +    if (!initial_nested_state_.empty()) {
 +      attached_context_->GetTabStripModel()->PrepareNestedDragRestore(
 +          initial_nested_state_);
@@ -4757,19 +4746,18 @@ Index: src/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
  
 -      const tabs::TabInterface* tab =
 -          tabs::TabInterface::GetFromContents(tab_data.contents);
-+    // Expanded-container reorder previews can attach an originally root tab
-+    // without changing its flat index. An empty initial_nested_state_ means
-+    // "originally root", not "nothing to restore". Remove preview ownership
-+    // before index/group reversion; RestoreNestedDragState below rebuilds the
-+    // captured original parent edges. PrepareNestedDragRestore has already
-+    // unwrapped original owner drags, so they are not moved twice.
++    // A preview can parent an originally root tab without moving its flat
++    // index. Clear that preview before index reversion. RestoreNestedDragState
++    // rebuilds the original edges. PrepareNestedDragRestore already unwrapped
++    // original owners, so those are not moved twice.
 +    auto* attached_model = attached_context_->GetTabStripModel();
 +    std::vector<int> preview_children;
 +    for (const auto& tab_data : drag_data_.tab_drag_data_) {
 +      if (!tab_data.contents) {
 +        continue;
 +      }
-+      const int index = attached_model->GetIndexOfWebContents(tab_data.contents);
++      const int index =
++          attached_model->GetIndexOfWebContents(tab_data.contents);
 +      if (index != TabStripModel::kNoTab &&
 +          attached_model->GetParentIndex(index).has_value()) {
 +        preview_children.push_back(index);
@@ -4789,28 +4777,22 @@ Index: src/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
 +    // each group or split has multiple entries in `tab_drag_data_`.
 +    for (size_t i = 0; i < drag_data_.tab_drag_data_.size();) {
 +      const TabDragData tab_data = drag_data_.tab_drag_data_[i];
-+      if (tab_data.view_type == TabSlotView::ViewType::kTabGroupHeader) {
++      if (tab_data.is_group_header) {
 +        RevertGroupAt(i);
 +        if (!ref) {
 +          return;
 +        }
-+        // Skip all the tabs in the group too.
          i += source_context_->GetTabStripModel()
 -                 ->GetSplitData(split_id)
 -                 ->ListTabs()
 -                 .size();
--      } else {
--        RevertTabAt(i);
 +                 ->group_model()
 +                 ->GetTabGroup(tab_data.tab_group_data->group_id)
 +                 ->tab_count() +
 +             1;
-+      } else if (tab_data.view_type ==
-+                 TabSlotView::ViewType::kNestedContainer) {
-+        // NESTED slot views have no per-tab model state to revert (the NESTED
-+        // moves as a unit via NestedDragData).
-         i++;
-+      } else {
+       } else {
+-        RevertTabAt(i);
+-        i++;
 +        CHECK(tab_data.contents);
 +
 +        const tabs::TabInterface* tab =
@@ -4843,7 +4825,7 @@ Index: src/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
        }
      }
    }
-@@ -2225,14 +2411,32 @@ void TabDragController::RevertDrag() {
+@@ -2268,14 +2444,32 @@
      OnContextDraggedTabsDetached();
    }
  
@@ -5303,23 +5285,24 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
 ===================================================================
 --- src.orig/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
 +++ src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
-@@ -16,10 +16,15 @@
+@@ -15,12 +15,16 @@
+ #include "chrome/browser/ui/layout_constants.h"
  #include "chrome/browser/ui/tabs/tab_style.h"
  #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
- #include "chrome/browser/ui/views/tabs/common/tab_collection_node.h"
 +#include "chrome/browser/ui/views/tabs/common/nested_tab_view.h"
-+#include "chrome/browser/ui/views/tabs/common/tab_group_view.h"
-+#include "chrome/browser/ui/views/tabs/dragging/tab_drag_context.h"
+ #include "chrome/browser/ui/views/tabs/common/tab_collection_node.h"
  #include "chrome/browser/ui/views/tabs/common/tab_drag_handler.h"
++#include "chrome/browser/ui/views/tabs/common/tab_group_view.h"
  #include "chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.h"
+ #include "chrome/browser/ui/views/tabs/common/tab_strip_utils.h"
  #include "chrome/browser/ui/views/tabs/dragging/drag_session_data.h"
++#include "chrome/browser/ui/views/tabs/dragging/tab_drag_context.h"
  #include "chrome/browser/ui/views/tabs/dragging/tab_drag_target.h"
 +#include "components/tabs/public/nested_tab_collection.h"
-+#include "components/tabs/public/nested_tab_data.h"
  #include "content/public/browser/navigation_controller.h"
  #include "ui/compositor/layer.h"
  #include "ui/gfx/geometry/point.h"
-@@ -31,6 +36,25 @@
+@@ -32,6 +36,25 @@
  
  namespace {
  
@@ -5345,7 +5328,7 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
  // Calculates the offset of the source dragged view (i.e. the main view being
  // dragged) from the mouse.
  gfx::Vector2d GetSourceViewOffsetFromMouse(
-@@ -83,6 +107,30 @@ DraggedTabsContainer::
+@@ -101,6 +124,30 @@
  
  DraggedTabsContainer& DraggedTabsContainer::GetTabDragTarget(
      const gfx::Point& point_in_screen) {
@@ -5376,7 +5359,7 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
    return *this;
  }
  
-@@ -90,6 +138,11 @@ TabDragContext* DraggedTabsContainer::On
+@@ -108,6 +155,11 @@
      TabDragTarget::DragController& drag_controller,
      const gfx::Point& point_in_screen) {
    last_drag_point_in_screen_ = point_in_screen;
@@ -5388,7 +5371,7 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
    if (drag_controller.GetAttachedContext() !=
        GetDragHandler().GetDragContext()) {
      // Do nothing until the drag attaches to this window's context.
-@@ -98,13 +151,24 @@ TabDragContext* DraggedTabsContainer::On
+@@ -116,13 +168,24 @@
  
    // Used to determine whether the layout should snap into position without
    // animating at the end of this drag cycle.
@@ -5413,7 +5396,7 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
    return GetDragHandler().GetDragContext();
  }
  
-@@ -128,6 +192,9 @@ void DraggedTabsContainer::ApplyUpdatesF
+@@ -153,6 +216,9 @@
  }
  
  void DraggedTabsContainer::OnTabDragExited(const gfx::Point& point_in_screen) {
@@ -5423,17 +5406,17 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
    ResetDragState();
    auto* scroll_view = GetScrollViewForContainer();
    CHECK(scroll_view);
-@@ -135,6 +202,9 @@ void DraggedTabsContainer::OnTabDragExit
- }
- 
- void DraggedTabsContainer::OnTabDragEnded() {
+@@ -163,6 +229,9 @@
+   // By the time `OnTabDragEnded()` is invoked, `TabDragHandler::IsDragging()`
+   // is already false, so explicitly allow layout animations for the dragged
+   // views to animate into their final slots.
 +  if (collection_node_) {
 +    GetDragHandler().SetPendingNestIntoTarget(std::nullopt);
 +  }
+   auto animate_layout =
+       collection_node_->GetController()->ScopedAnimateLayout();
    ResetDragState();
-   auto* scroll_view = GetScrollViewForContainer();
-   CHECK(scroll_view);
-@@ -142,13 +212,34 @@ void DraggedTabsContainer::OnTabDragEnde
+@@ -172,13 +241,34 @@
  }
  
  bool DraggedTabsContainer::CanDropTab() {
@@ -5470,7 +5453,7 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
  
    // We don't need to snap any views here, since the layout manager already
    // skips animating dragged views.
-@@ -171,7 +262,8 @@ void DraggedTabsContainer::OnViewBoundsC
+@@ -201,7 +291,8 @@
    }
    const gfx::Point point_in_container = views::View::ConvertPointFromScreen(
        base::to_address(host_view_), last_drag_point_in_screen_);
@@ -5480,7 +5463,7 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
      UpdateDraggingViewTransforms(point_in_container);
      return;
    }
-@@ -188,8 +280,16 @@ void DraggedTabsContainer::OnViewIsDelet
+@@ -218,8 +309,16 @@
      return;
    }
  
@@ -5499,16 +5482,16 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
      dragged_view_observations_.RemoveObservation(observed_view);
    }
  }
-@@ -248,12 +348,17 @@ void DraggedTabsContainer::InitializeDra
+@@ -280,12 +379,16 @@
    gfx::Rect dragged_bounds_in_container =
        GetDraggingViewsBoundsAtPointClamped(point_in_container);
  
--  const auto* source_dragged_view = drag_handler.ViewFromTabSlot(
-+  views::View* source_dragged_view = drag_handler.ViewFromTabSlot(
+-  const auto* source_dragged_view = drag_handler.GetDraggedViewForAttachedView(
++  views::View* source_dragged_view = drag_handler.GetDraggedViewForAttachedView(
        controller.GetSessionData().source_view_drag_data()->attached_view);
- 
-+  // The source view may not participate at this level (BuildDragLayout
-+  // filters out views not parented to `host_view_`); bail rather than CHECK.
+-
++  // BuildDragLayout drops views that are not in this container. An owner drag
++  // can start here without the wrapper participating at this level.
 +  auto source_it = dragging_views_.find(source_dragged_view);
 +  if (source_it == dragging_views_.end()) {
 +    return;
@@ -5520,7 +5503,7 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
  
    // Build the map of dragging views to their offset between their position at
    // the start of the drag, and the position they're expected to be at this
-@@ -263,6 +368,12 @@ void DraggedTabsContainer::InitializeDra
+@@ -295,6 +398,12 @@
    for (const auto& [dragging_view, visual_data] : dragging_views_) {
      auto start_offset_from_source =
          drag_handler.GetOffsetFromSourceAtDragStart(dragging_view);
@@ -5533,8 +5516,8 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
      auto target_offset_from_source =
          GetDraggingViewPositionForBounds(
              dragging_view, dragged_bounds_in_container, visual_data.offset) -
-@@ -317,9 +428,8 @@ void DraggedTabsContainer::BuildDragLayo
-     auto* dragging_view = GetDragHandler().ViewFromTabSlot(attached_view);
+@@ -350,9 +459,8 @@
+         GetDragHandler().GetDraggedViewForAttachedView(attached_view);
      CHECK(dragging_view);
  
 -    if (dragging_view->parent() != base::to_address(host_view_)) {
@@ -5545,7 +5528,7 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
      if (dragging_views_.contains(dragging_view)) {
        // It's possible that multiple dragged tabs map to the same dragged view
        // (e.g., split tabs). Skip the duplicates.
-@@ -329,20 +439,30 @@ void DraggedTabsContainer::BuildDragLayo
+@@ -362,20 +470,30 @@
      const bool is_source_view = dragging_view == source_dragged_view;
      const auto* dragging_view_layout =
          target_layout.GetLayoutFor(dragging_view);
@@ -5580,7 +5563,7 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
                                      is_source_view);
          break;
        default:
-@@ -357,6 +477,25 @@ void DraggedTabsContainer::BuildDragLayo
+@@ -390,6 +508,30 @@
      std::for_each(attached_views.begin(), attached_views.end(),
                    add_view_to_layout);
    }
@@ -5590,8 +5573,13 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
 +      if (!data.attached_view) {
 +        continue;
 +      }
-+      auto* dragged_view = GetDragHandler().ViewFromTabSlot(data.attached_view);
-+      auto& visual_data = dragging_views_.at(dragged_view);
++      auto* dragged_view =
++          GetDragHandler().GetDraggedViewForAttachedView(data.attached_view);
++      auto dragged_it = dragging_views_.find(dragged_view);
++      if (dragged_it == dragging_views_.end()) {
++        continue;
++      }
++      auto& visual_data = dragged_it->second;
 +      // The grabbed slot takes precedence when slots share a wrapper.
 +      if (!visual_data.horizontal_anchor ||
 +          &data == session_data.source_view_drag_data()) {
@@ -5606,7 +5594,7 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
  }
  
  void DraggedTabsContainer::AddViewToDragLayout(views::View* dragging_view,
-@@ -466,8 +605,31 @@ void DraggedTabsContainer::UpdateDraggin
+@@ -502,8 +644,31 @@
    gfx::Transform transform;
    const gfx::Vector2d position = GetDraggingViewPositionForBounds(
        dragged_view, bounding_box_for_point, visual_data.offset);
@@ -5640,7 +5628,7 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
  
    dragged_view->SetTransform(transform);
  }
-@@ -583,6 +745,24 @@ DraggedTabsContainer::GetVisualDataForDr
+@@ -618,6 +783,24 @@
    };
  }
  
@@ -5665,7 +5653,7 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
  bool DraggedTabsContainer::IsHorizontalDragSupported() const {
    return drag_axes_ != DragAxes::kVerticalOnly;
  }
-@@ -643,6 +823,11 @@ DraggedTabsContainer::GetTabStripCollaps
+@@ -678,6 +861,11 @@
  
  void DraggedTabsContainer::ResetCollectionNode() {
    collection_node_ = nullptr;
@@ -5677,7 +5665,7 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
  }
  
  std::vector<const views::View*> DraggedTabsContainer::GetDraggingViews() const {
-@@ -678,24 +863,54 @@ void DraggedTabsContainer::HandleTabDrag
+@@ -713,24 +901,54 @@
  
    TabDragHandler& drag_handler = GetDragHandler();
    const views::ProposedLayout& drag_layout = GetLayoutForDrag();
@@ -5737,7 +5725,7 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
    // Whether the loop below saw the dragged view(s). Once the dragged view
    // was seen, the bounds of the later views must be adjusted to discount the
    // size of the dragged view.
-@@ -730,8 +945,9 @@ const TabCollectionNode* DraggedTabsCont
+@@ -765,8 +983,9 @@
        }
  
        const int row_y = child_layout.bounds.y();
@@ -5749,7 +5737,7 @@ Index: src/chrome/browser/ui/views/tabs/common/dragged_tabs_container.cc
      }
  
      // If the dragged view was already seen, then discount its size from
-@@ -746,10 +962,113 @@ const TabCollectionNode* DraggedTabsCont
+@@ -781,10 +1000,113 @@
      const int midpoint_y = adjusted_child_center_y + (dragged_height / 2);
  
      if (dragged_center_y < midpoint_y) {
@@ -5964,38 +5952,28 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.cc
 ===================================================================
 --- src.orig/chrome/browser/ui/views/tabs/common/tab_drag_handler.cc
 +++ src/chrome/browser/ui/views/tabs/common/tab_drag_handler.cc
-@@ -7,8 +7,10 @@
+@@ -7,8 +7,12 @@
  #include <algorithm>
  #include <memory>
  #include <optional>
 +#include <ranges>
++#include <set>
++#include <utility>
  
  #include "base/check_deref.h"
 +#include "base/check_op.h"
  #include "base/functional/bind.h"
  #include "base/notreached.h"
  #include "base/types/to_address.h"
-@@ -19,6 +21,10 @@
- #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
- #include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
- #include "chrome/browser/ui/views/tabs/common/tab_collection_node.h"
-+#include "chrome/browser/ui/views/tabs/common/nested_tab_view.h"
-+#include "chrome/browser/ui/views/tabs/common/tab_view.h"
+@@ -30,6 +34,7 @@
+ #include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h"
+ #include "chrome/browser/ui/views/tabs/shared/tab_strip_types.h"
+ #include "components/tab_groups/tab_group_id.h"
 +#include "components/tabs/public/nested_tab_collection.h"
-+#include "components/tabs/public/nested_tab_data.h"
- #include "chrome/browser/ui/views/tabs/common/tab_link_drop_handler.h"
- #include "chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.h"
- #include "chrome/browser/ui/views/tabs/common/tab_strip_view.h"
-@@ -78,6 +84,8 @@ class DraggedTabSlotView : public TabSlo
-         return ViewType::kTab;
-       case TabCollectionNode::Type::GROUP:
-         return ViewType::kTabGroupHeader;
-+      case TabCollectionNode::Type::NESTED:
-+        return ViewType::kNestedContainer;
-       default:
-         NOTREACHED();
-     }
-@@ -128,6 +136,11 @@ gfx::Range GetContainerRange(const TabCo
+ #include "components/tabs/public/split_tab_collection.h"
+ #include "components/tabs/public/split_tab_data.h"
+ #include "components/tabs/public/tab_collection.h"
+@@ -83,6 +88,11 @@
    switch (container_node.type()) {
      case TabCollectionNode::Type::GROUP:
        return TabGroupDataFromNode(container_node).ListTabs();
@@ -6007,7 +5985,7 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.cc
      case TabCollectionNode::Type::PINNED:
        return gfx::Range(0, tab_strip_model.IndexOfFirstNonPinnedTab());
      case TabCollectionNode::Type::UNPINNED:
-@@ -146,9 +159,40 @@ std::optional<tab_groups::TabGroupId> Ge
+@@ -101,9 +111,40 @@
      const auto& group = TabGroupDataFromNode(container_node);
      return group.id();
    }
@@ -6048,7 +6026,7 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.cc
  // Returns the index for insertion before the given collection node.
  int GetInsertionIndexForNode(const TabCollectionNode& node,
                               const TabStripModel& tab_strip_model) {
-@@ -172,6 +216,12 @@ int GetInsertionIndexForNode(const TabCo
+@@ -127,6 +168,12 @@
      const auto* split_data = split_collection->data();
      gfx::Range range = split_data->GetIndexRange();
      return range.start();
@@ -6061,7 +6039,7 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.cc
    }
    NOTREACHED() << "Unsupported Tab Collection Node";
  }
-@@ -206,9 +256,17 @@ void TabDragHandlerImpl::InitializeDrag(
+@@ -160,9 +207,17 @@
  
    DragInitData drag_init_data;
    switch (node.type()) {
@@ -6081,40 +6059,38 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.cc
      case TabCollectionNode::Type::GROUP:
        drag_init_data = GetDragInitDataForGroupHeaderDrag(node);
        break;
-@@ -324,6 +382,32 @@ TabDragHandlerImpl::GetDragInitDataForGr
+@@ -278,6 +333,30 @@
    return drag_init_data;
  }
  
-+TabDragHandlerImpl::DragInitData
-+TabDragHandlerImpl::GetDragInitDataForNestedOwnerDrag(
++TabDragHandler::DragInitData TabDragHandler::GetDragInitDataForNestedOwnerDrag(
 +    TabCollectionNode& source_node) {
 +  DragInitData drag_init_data;
-+  drag_init_data.source_dragged_view = &GetOrCreateSlotViewForNode(source_node);
++  drag_init_data.source_dragged_view = source_node.view();
++  CHECK(drag_init_data.source_dragged_view);
 +  drag_init_data.dragged_views.push_back(drag_init_data.source_dragged_view);
 +
 +  const tabs::TabInterface* owner_tab =
-+      std::get<tabs::ConstDanglingUntriagedTabInterface>(source_node.GetNodeData());
++      std::get<tabs::ConstDanglingUntriagedTabInterface>(
++          source_node.GetNodeData());
 +  auto nested_id = tab_strip_model_->GetOwnedNestedId(owner_tab);
 +  CHECK(nested_id);
 +
-+  // Tag the owner's slot view with the NESTED id so TabDragController::Init
-+  // routes commit-time dispatch through MoveNestedTo. Descendants are
-+  // deliberately NOT added to `tab_drag_data_` (mainline TabDragController
-+  // doesn't tolerate non-tab/non-group-header entries); visual lockstep
-+  // comes from BuildDragLayout rebasing the owner's view onto the enclosing
-+  // NestedTabView.
++  // Drag data names only the owner. Descendants stay out of tab_drag_data_;
++  // TabDragController moves the subtree, and BuildDragLayout rebases the
++  // owner's view onto the enclosing nested view. Tab views are not slot views
++  // in this revision, so Init reads ownership from the model rather than from
++  // a tag stored on the view.
 +  size_t owner_index = tab_strip_model_->GetIndexOfTab(owner_tab);
 +  drag_init_data.list_selection_model.AddIndexToSelection(owner_index);
 +  drag_init_data.list_selection_model.set_active(owner_index);
-+  drag_init_data.source_dragged_view->SetNested(nested_id);
-+
 +  return drag_init_data;
 +}
 +
- std::map<tab_groups::TabGroupId, TabSlotView*>
- TabDragHandlerImpl::GetFullySelectedGroups(
+ std::map<tab_groups::TabGroupId, views::View*>
+ TabDragHandler::GetFullySelectedGroups(
      const std::vector<tabs::TabInterface*>& selected_tabs) {
-@@ -402,7 +486,14 @@ void TabDragHandlerImpl::HandleDraggedTa
+@@ -358,7 +437,14 @@
  
    int target_index;
    std::optional<tab_groups::TabGroupId> target_group_id;
@@ -6130,7 +6106,7 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.cc
      // If dragging into a group, then either put the dragged tabs into the
      // start/end if the source dragged tab is before/after the group, or move
      // all dragged tabs to the source dragged tab's position if it's already
-@@ -439,10 +530,29 @@ void TabDragHandlerImpl::HandleDraggedTa
+@@ -395,10 +481,29 @@
        ++num_dragged_tabs_before_target;
      }
    }
@@ -6160,9 +6136,9 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.cc
 +  }
  }
  
- TabDragContext* TabDragHandlerImpl::GetDragContext() {
-@@ -506,6 +616,21 @@ views::View* TabDragHandlerImpl::ViewFro
-         std::get<tabs::ConstDanglingUntriagedTabInterface>(node.GetNodeData());
+ TabDragContext* TabDragHandler::GetDragContext() {
+@@ -458,6 +563,21 @@
+     const tabs::TabInterface* tab = tab_view->GetTabInterface();
      CHECK(tab);
  
 +    // Owner of the actively-dragged NESTED redirects to the wrapper view
@@ -6177,16 +6153,16 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.cc
 +      const auto* nested_node =
 +          data ? root_node_->GetNodeForHandle(data->GetCollectionHandle())
 +               : nullptr;
-+      return nested_node ? nested_node->view() : node.view();
++      return nested_node ? nested_node->view() : tab_view;
 +    }
 +
      if (auto group_id = tab->GetGroup();
          group_id && drag_controller_->GetSessionData().dragging_groups.contains(
                          *group_id)) {
-@@ -720,7 +845,40 @@ std::unique_ptr<TabDragController> TabDr
+@@ -685,7 +805,68 @@
  }
  
- void TabDragHandlerImpl::DestroyDragController() {
+ void TabDragHandler::DestroyDragController() {
 +  auto pending = std::exchange(pending_nest_commit_, std::nullopt);
 +  auto weak_this = weak_factory_.GetWeakPtr();
    drag_controller_.reset();
@@ -6195,7 +6171,7 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.cc
 +  }
 +}
 +
-+void TabDragHandlerImpl::CommitPendingNest(PendingNestCommit pending) {
++void TabDragHandler::CommitPendingNest(PendingNestCommit pending) {
 +  if (drag_controller_ || tab_strip_model_->closing_all()) {
 +    return;
 +  }
@@ -6210,32 +6186,60 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.cc
 +  std::vector<int> children;
 +  for (auto handle : pending.children) {
 +    const auto* tab = handle.Get();
-+    const int index = tab ? tab_strip_model_->GetIndexOfTab(tab)
-+                          : TabStripModel::kNoTab;
++    const int index =
++        tab ? tab_strip_model_->GetIndexOfTab(tab) : TabStripModel::kNoTab;
 +    if (index == TabStripModel::kNoTab || index == parent_index) {
 +      return;
 +    }
 +    children.push_back(index);
 +  }
-+  if (!children.empty() && tab_strip_model_->AllCanNestInto(
++  if (!children.empty() &&
++      tab_strip_model_->AllCanNestInto(
 +          std::set<int>(children.begin(), children.end()), parent_index)) {
 +    tab_strip_model_->Nest(parent_index, std::move(children));
 +  }
++}
++
++std::optional<nested_tabs::NestedTabId> TabDragHandler::GetDraggingNestedId()
++    const {
++  return drag_controller_ ? drag_controller_->GetSessionData().nested_id()
++                          : std::nullopt;
++}
++
++void TabDragHandler::SetPendingNestIntoTarget(
++    std::optional<tabs::TabHandle> target) {
++  if (target == pending_nest_into_target_) {
++    return;
++  }
++  auto highlight = [&](std::optional<tabs::TabHandle> handle, bool on) {
++    if (!handle || !handle->Get()) {
++      return;
++    }
++    auto* node = GetNodeForContents(handle->Get()->GetContents());
++    if (node && node->view()) {
++      if (auto* view = views::AsViewClass<TabView>(node->view())) {
++        view->SetIsDropTarget(on);
++      }
++    }
++  };
++  highlight(pending_nest_into_target_, false);
++  pending_nest_into_target_ = target;
++  highlight(pending_nest_into_target_, true);
  }
  
- void TabDragHandlerImpl::StartedDragging(
-@@ -790,6 +948,8 @@ void TabDragHandlerImpl::StartedDragging
+ void TabDragHandler::StartedDragging(const std::vector<views::View*>& views) {
+@@ -753,6 +934,8 @@
  }
  
- void TabDragHandlerImpl::DraggedTabsDetached() {
+ void TabDragHandler::DraggedTabsDetached() {
 +  pending_nest_drop_ = false;
 +  SetPendingNestIntoTarget(std::nullopt);
    expand_on_hover_lock_.reset();
    scroll_synchronizers_.clear();
  }
-@@ -822,6 +982,56 @@ void TabDragHandlerImpl::StoppedDragging
-     }
-   }
+@@ -761,6 +944,56 @@
+   expand_on_hover_lock_.reset();
+   scroll_synchronizers_.clear();
  
 +  // Snapshot an accepted kChildInto using stable handles. Do not mutate the
 +  // tree here: CompleteDrag still owns the current drag target and attached
@@ -6290,61 +6294,19 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.cc
    if (!drag_controller_) {
      return;
    }
-@@ -897,10 +1107,14 @@ TabSlotView& TabDragHandlerImpl::GetOrCr
-         CHECK(tab);
-         dragged_slot_view.SetGroup(tab->GetGroup());
-         dragged_slot_view.SetSplit(tab->GetSplit());
-+        dragged_slot_view.SetNested(std::nullopt);
-       } break;
-       case TabCollectionNode::Type::GROUP:
-         dragged_slot_view.SetGroup(TabGroupDataFromNode(node).id());
-         break;
-+      case TabCollectionNode::Type::NESTED:
-+        // No group/split to propagate; just set bounds (done below).
-+        break;
-       default:
-         NOTREACHED();
-     }
-@@ -935,8 +1149,38 @@ void TabDragHandlerImpl::OnNodeWillDestr
+@@ -850,8 +1083,11 @@
  }
  
- void TabDragHandlerImpl::ResetDragState() {
+ void TabDragHandler::ResetDragState() {
 +  pending_nest_commit_.reset();
 +  pending_nest_drop_ = false;
    drag_controller_.reset();
    scroll_synchronizers_.clear();
 +  SetPendingNestIntoTarget(std::nullopt);
-+}
-+
-+std::optional<nested_tabs::NestedTabId>
-+TabDragHandlerImpl::GetDraggingNestedId() const {
-+  return drag_controller_ ? drag_controller_->GetSessionData().nested_id()
-+                          : std::nullopt;
-+}
-+
-+void TabDragHandlerImpl::SetPendingNestIntoTarget(
-+    std::optional<tabs::TabHandle> target) {
-+  if (target == pending_nest_into_target_) {
-+    return;
-+  }
-+  auto highlight = [&](std::optional<tabs::TabHandle> handle, bool on) {
-+    if (!handle || !handle->Get()) {
-+      return;
-+    }
-+    auto* node = GetNodeForContents(handle->Get()->GetContents());
-+    if (node && node->view()) {
-+      if (auto* view = views::AsViewClass<TabView>(node->view())) {
-+        view->SetIsDropTarget(on);
-+      }
-+    }
-+  };
-+  highlight(pending_nest_into_target_, false);
-+  pending_nest_into_target_ = target;
-+  highlight(pending_nest_into_target_, true);
  }
  
- bool TabDragHandlerImpl::HandleDraggedTabsIntoPosition(
-@@ -961,9 +1205,31 @@ bool TabDragHandlerImpl::HandleDraggedTa
+ bool TabDragHandler::HandleDraggedTabsIntoPosition(
+@@ -876,9 +1112,31 @@
    target_index =
        std::clamp(target_index, container_start_index, container_end_index);
  
@@ -6376,7 +6338,7 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.cc
    for (const TabDragData& tab_drag_data : drag_session_data.tab_drag_data_) {
      if (!tab_drag_data.contents) {
        continue;
-@@ -977,32 +1243,80 @@ bool TabDragHandlerImpl::HandleDraggedTa
+@@ -892,32 +1150,80 @@
        are_dragged_tabs_in_target_group = false;
      }
  
@@ -6474,25 +6436,16 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.h
  #include <set>
  #include <vector>
  
-@@ -107,6 +108,16 @@ class TabDragHandler {
-   // Called before a tab is removed from the tabstrip. Cancels the current drag
-   // if the tab is one of the dragged tabs.
-   virtual void OnTabWillBeRemoved(content::WebContents* contents) = 0;
-+
-+  virtual const TabDragController* GetDragController() const = 0;
-+
-+  // Records the tab the drag is currently hovering inside (kChildInto zone)
-+  // so per-frame insert-before commits are suppressed; on drop the impl
-+  // calls `Nest`. Pass nullopt to clear.
-+  virtual void SetPendingNestIntoTarget(
-+      std::optional<tabs::TabHandle> target) {}
-+  // Called only for a successful drop, never for cancellation/teardown.
-+  virtual void AcceptPendingNestDrop() {}
- };
- 
- // Implements a minimal drag context to interact with the central
-@@ -166,6 +177,9 @@ class TabDragHandlerImpl : public TabDra
-       const tab_groups::TabGroupId& group_id) override;
+@@ -19,6 +20,7 @@
+ #include "chrome/browser/ui/views/tabs/dragging/tab_drag_context.h"
+ #include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h"
+ #include "chrome/browser/ui/views/tabs/shared/tab_strip_types.h"
++#include "components/nested_tabs/nested_tab_id.h"
+ #include "components/tab_groups/tab_group_id.h"
+ #include "components/tabs/public/tab_interface.h"
+ #include "content/public/browser/web_contents.h"
+@@ -137,6 +139,9 @@
+       const views::View* header_view) const override;
    TabStripModel* GetTabStripModel() override;
    TabDragController* GetDragController() override;
 +  const TabDragController* GetDragController() const override {
@@ -6501,25 +6454,26 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.h
    void OwnDragController(
        std::unique_ptr<TabDragController> controller) override;
    std::unique_ptr<TabDragController> ReleaseDragController() override;
-@@ -173,6 +187,7 @@ class TabDragHandlerImpl : public TabDra
-   void StartedDragging(const std::vector<TabSlotView*>& views) override;
+@@ -144,6 +149,7 @@
+   void StartedDragging(const std::vector<views::View*>& views) override;
    void DraggedTabsDetached() override;
    void StoppedDragging() override;
 +  void AcceptPendingNestDrop() override { pending_nest_drop_ = true; }
    void SetDragControllerCallbackForTesting(
        base::OnceCallback<void(TabDragController*)> callback) override;
    TabDragPositioningDelegate* GetPositioningDelegate() override;
-@@ -209,6 +224,7 @@ class TabDragHandlerImpl : public TabDra
+@@ -178,6 +184,8 @@
    DragInitData GetDragInitDataForTabDrag(TabCollectionNode& source_node);
    DragInitData GetDragInitDataForGroupHeaderDrag(
        TabCollectionNode& source_node);
-+  DragInitData GetDragInitDataForNestedOwnerDrag(TabCollectionNode& source_node);
-   std::map<tab_groups::TabGroupId, TabSlotView*> GetFullySelectedGroups(
++  DragInitData GetDragInitDataForNestedOwnerDrag(
++      TabCollectionNode& source_node);
+   std::map<tab_groups::TabGroupId, views::View*> GetFullySelectedGroups(
        const std::vector<tabs::TabInterface*>& selected_tabs);
  
-@@ -221,6 +237,12 @@ class TabDragHandlerImpl : public TabDra
-   // core dragging system. The created slot view is cached in `slot_views_`.
-   TabSlotView& GetOrCreateSlotViewForNode(TabCollectionNode& node);
+@@ -186,6 +194,12 @@
+   const TabCollectionNode* GetNodeForTabGroup(
+       const tab_groups::TabGroupId& group_id) const;
  
 +  struct PendingNestCommit {
 +    tabs::TabHandle parent;
@@ -6530,7 +6484,7 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.h
    // Resets member variables that track a drag being managed by this handler.
    void ResetDragState();
  
-@@ -231,6 +253,11 @@ class TabDragHandlerImpl : public TabDra
+@@ -193,6 +207,11 @@
    // was not initiated by a group header.
    std::optional<tab_groups::TabGroupId> GetDraggingGroupHeaderId() const;
  
@@ -6542,9 +6496,9 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.h
    const raw_ref<TabStripModel> tab_strip_model_;
    const raw_ref<TabCollectionNode> root_node_;
    const raw_ref<TabStripRegionView> tab_strip_region_view_;
-@@ -250,6 +277,13 @@ class TabDragHandlerImpl : public TabDra
-   std::map<raw_ptr<const TabCollectionNode>, raw_ptr<TabSlotView>> slot_views_;
-   std::vector<base::CallbackListSubscription> node_destroyed_callbacks_;
+@@ -207,6 +226,13 @@
+   std::vector<std::unique_ptr<views::ScrollView::ScopedScrollSynchronizer>>
+       scroll_synchronizers_;
  
 +  // See SetPendingNestIntoTarget.
 +  std::optional<tabs::TabHandle> pending_nest_into_target_;
@@ -6553,7 +6507,7 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_drag_handler.h
 +  // Applied only after OnTabDragEnded and destruction of the controller.
 +  std::optional<PendingNestCommit> pending_nest_commit_;
 +
-   base::WeakPtrFactory<TabDragHandlerImpl> weak_factory_{this};
+   base::WeakPtrFactory<TabDragHandler> weak_factory_{this};
  };
  
 Index: src/chrome/browser/ui/views/tabs/common/tab_group_view.cc
@@ -6592,25 +6546,24 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.c
 ===================================================================
 --- src.orig/chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.cc
 +++ src/chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.cc
-@@ -4,6 +4,9 @@
- 
- #include "chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.h"
- 
-+#include "chrome/browser/ui/tabs/tab_strip_prefs.h"
+@@ -12,6 +12,7 @@
+ #include "base/metrics/histogram_functions.h"
+ #include "base/metrics/user_metrics.h"
+ #include "base/metrics/user_metrics_action.h"
 +#include "chrome/browser/profiles/profile.h"
-+
- #include <variant>
- 
- #include "base/memory/weak_ptr.h"
-@@ -25,6 +28,7 @@
+ #include "chrome/browser/sessions/session_restore.h"
+ #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
+ #include "chrome/browser/ui/browser_command_controller.h"
+@@ -29,6 +30,8 @@
  #include "chrome/browser/ui/tabs/tab_menu_model_delegate.h"
  #include "chrome/browser/ui/tabs/tab_strip_model.h"
  #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
++#include "chrome/browser/ui/tabs/tab_strip_prefs.h"
 +#include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
  #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
  #include "chrome/browser/ui/ui_features.h"
- #include "chrome/browser/ui/views/frame/base_tab_strip_region_view.h"
-@@ -44,6 +48,7 @@
+ #include "chrome/browser/ui/views/frame/browser_frame_view.h"
+@@ -47,6 +50,7 @@
  #include "chrome/grit/generated_resources.h"
  #include "components/tab_groups/tab_group_id.h"
  #include "components/tabs/public/tab_collection_types.h"
@@ -6618,7 +6571,7 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.c
  #include "components/tabs/public/tab_context_menu_command.h"
  #include "components/tabs/public/tab_group.h"
  #include "components/tabs/public/tab_interface.h"
-@@ -94,6 +99,11 @@ TabStripCollectionController::~TabStripC
+@@ -102,6 +106,11 @@
    }
  }
  
@@ -6630,7 +6583,7 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.c
  int TabStripCollectionController::GetTabCount() const {
    return model_->count();
  }
-@@ -476,6 +486,38 @@ void TabStripCollectionController::ShowT
+@@ -500,6 +509,38 @@
                                        collection_node->view()->GetWidget());
  }
  
@@ -7858,7 +7811,7 @@ Index: src/components/sessions/core/tab_restore_service_helper.cc
  #include <string>
  #include <utility>
  #include <vector>
-@@ -130,6 +132,42 @@ void AddSerializedNavigationEntries(
+@@ -130,6 +132,42 @@
    }
  }
  
@@ -7901,7 +7854,7 @@ Index: src/components/sessions/core/tab_restore_service_helper.cc
  // Maps LiveTabs for saved groups that bypassed AddRestoredTab.
  void MapSavedGroupTabsToLiveTabs(
      LiveTabContext* context,
-@@ -284,6 +322,15 @@ std::optional<SessionID> TabRestoreServi
+@@ -284,6 +322,15 @@
      }
    }
  
@@ -7917,7 +7870,7 @@ Index: src/components/sessions/core/tab_restore_service_helper.cc
    // Save the Window as well as the Tab if this is the last tab of an app
    // browser to ensure the tab will reopen in the correct app window.
    if (context && context->GetTabCount() == 1 &&
-@@ -488,6 +535,80 @@ TabRestoreServiceHelper::CreateHistorica
+@@ -506,6 +553,80 @@
    return split;
  }
  
@@ -7998,7 +7951,7 @@ Index: src/components/sessions/core/tab_restore_service_helper.cc
  void TabRestoreServiceHelper::ClearEntries() {
    if (observer_) {
      observer_->OnClearEntries();
-@@ -498,6 +619,10 @@ void TabRestoreServiceHelper::ClearEntri
+@@ -516,6 +637,10 @@
  
  bool TabRestoreServiceHelper::DeleteFromTab(const DeletionPredicate& predicate,
                                              Tab* tab) {
@@ -8009,7 +7962,7 @@ Index: src/components/sessions/core/tab_restore_service_helper.cc
    // TODO(dullweber): Change to DCHECK() when this is tested to be true.
    CHECK(ValidateTab(*tab));
    std::vector<SerializedNavigationEntry> new_navigations;
-@@ -949,6 +1074,15 @@ std::optional<std::vector<LiveTab*>> Tab
+@@ -967,6 +1092,15 @@
        if (restored_tab) {
          live_tabs.push_back(restored_tab->GetWeakPtr());
        }
@@ -8025,7 +7978,7 @@ Index: src/components/sessions/core/tab_restore_service_helper.cc
        context->ShowBrowserWindow();
        break;
      }
-@@ -1062,6 +1196,7 @@ std::optional<std::vector<LiveTab*>> Tab
+@@ -1080,6 +1214,7 @@
                                      restored_tab_map);
  
          ReconstructSplits(context, window_split_tabs, restored_tab_map);
@@ -8033,7 +7986,7 @@ Index: src/components/sessions/core/tab_restore_service_helper.cc
  
          // Batch restoration can select a group's first tab instead of the saved
          // selection. Reuse the split mapping; if the group's size changed and
-@@ -1172,13 +1307,16 @@ std::optional<std::vector<LiveTab*>> Tab
+@@ -1190,13 +1325,16 @@
                }
              }
  
@@ -8051,7 +8004,7 @@ Index: src/components/sessions/core/tab_restore_service_helper.cc
        } else {
          // 1. Restore a single tab from the group.
          auto it = std::find_if(
-@@ -1564,6 +1702,38 @@ void TabRestoreServiceHelper::PopulateTa
+@@ -1586,6 +1724,38 @@
      }
  
      tab->extra_data = context->GetExtraDataForTab(tab->tabstrip_index);
@@ -8073,7 +8026,7 @@ Index: src/components/sessions/core/tab_restore_service_helper.cc
 +  for (const auto& child : children) {
 +    LiveTab* restored_child = nullptr;
 +    context = RestoreTab(*child, context,
-+                         WindowOpenDisposition::NEW_BACKGROUND_TAB,
++                         WindowOpenDisposition::kNewBackgroundTab,
 +                         sessions::tab_restore::TAB, &restored_child,
 +                         is_restoring_group_or_window, live_parent_id);
 +    if (!restored_child) {
@@ -8090,7 +8043,7 @@ Index: src/components/sessions/core/tab_restore_service_helper.cc
    }
  }
  
-@@ -1573,26 +1743,36 @@ LiveTabContext* TabRestoreServiceHelper:
+@@ -1595,26 +1765,33 @@
      WindowOpenDisposition disposition,
      sessions::tab_restore::Type session_restore_type,
      LiveTab** live_tab,
@@ -8098,12 +8051,13 @@ Index: src/components/sessions/core/tab_restore_service_helper.cc
 +    bool is_restoring_group_or_window,
 +    std::optional<SessionID> parent_override) {
    LiveTab* restored_tab;
--  if (disposition == WindowOpenDisposition::CURRENT_TAB && context) {
-+  if (!parent_override && disposition == WindowOpenDisposition::CURRENT_TAB && context) {
+-  if (disposition == WindowOpenDisposition::kCurrentTab && context) {
++  if (!parent_override && disposition == WindowOpenDisposition::kCurrentTab &&
++      context) {
      restored_tab = context->ReplaceRestoredTab(tab);
    } else {
 -    // We only respect the tab's original browser if there's no disposition.
--    if (disposition == WindowOpenDisposition::UNKNOWN && tab.browser_id) {
+-    if (disposition == WindowOpenDisposition::kUnknown && tab.browser_id) {
 -      context = client_->FindLiveTabContextWithID(
 -          SessionID::FromSerializedValue(tab.browser_id));
 -    }
@@ -8117,23 +8071,19 @@ Index: src/components/sessions/core/tab_restore_service_helper.cc
 -          client_->FindLiveTabContextWithGroup(tab.group.value());
 -      if (group_context) {
 -        context = group_context;
-+    // Context-resolution by tab.browser_id / tab.group is only correct for
-+    // top-level restores. When parent_override is set we're inside a subtree
-+    // restore: the caller has already picked the right context (the parent's),
-+    // and the entry's browser_id/group still refer to the pre-close state,
-+    // which would route us to the wrong (or stale) context and cause Nest()
-+    // to receive indices for an unrelated tabstrip.
++    // browser_id and group still name the pre-close window. A subtree restore
++    // has already chosen the parent's context; resolving those ids would land
++    // the child in a different strip and Nest() would use the wrong indices.
 +    if (!parent_override.has_value()) {
 +      // We only respect the tab's original browser if there's no disposition.
-+      if (disposition == WindowOpenDisposition::UNKNOWN && tab.browser_id) {
++      if (disposition == WindowOpenDisposition::kUnknown && tab.browser_id) {
 +        context = client_->FindLiveTabContextWithID(
 +            SessionID::FromSerializedValue(tab.browser_id));
 +      }
 +
 +      // Restore a grouped tab into its original group, even if the group has
-+      // since been moved to a different context. If the original group
-+      // doesn't exist any more, fall back to using the tab's original
-+      // browser.
++      // since been moved to a different context. If the original group doesn't
++      // exist any more, fall back to using the tab's original browser.
 +      if (tab.group.has_value()) {
 +        // TODO: This needs to look at the saved id.
 +        LiveTabContext* group_context =
@@ -8144,23 +8094,24 @@ Index: src/components/sessions/core/tab_restore_service_helper.cc
        }
      }
  
-@@ -1601,7 +1781,7 @@ LiveTabContext* TabRestoreServiceHelper:
+@@ -1623,7 +1800,8 @@
      // |context| will be NULL in cases where one isn't already available (eg,
      // when invoked on Mac OS X with no windows open). In this case, create a
      // new browser into which we restore the tabs.
--    if (context && disposition != WindowOpenDisposition::NEW_WINDOW) {
-+    if (context && (parent_override || disposition != WindowOpenDisposition::NEW_WINDOW)) {
+-    if (context && disposition != WindowOpenDisposition::kNewWindow) {
++    if (context && (parent_override ||
++                    disposition != WindowOpenDisposition::kNewWindow)) {
        tab_index = tab.tabstrip_index;
      } else {
        context = client_->CreateLiveTabContext(
-@@ -1620,10 +1800,10 @@ LiveTabContext* TabRestoreServiceHelper:
+@@ -1642,10 +1820,10 @@
        tab_index = context->GetTabCount();
      }
  
 -    restored_tab = context->AddRestoredTab(
 +    restored_tab = context->AddRestoredTabWithParent(
          tab, tab_index,
-         /*select=*/disposition != WindowOpenDisposition::NEW_BACKGROUND_TAB,
+         /*select=*/disposition != WindowOpenDisposition::kNewBackgroundTab,
 -        is_restoring_group_or_window, session_restore_type);
 +        is_restoring_group_or_window, session_restore_type, parent_override);
    }
@@ -8266,7 +8217,7 @@ Index: src/components/sessions/core/tab_restore_types.h
  #include "base/time/time.h"
  #include "base/uuid.h"
  #include "components/sessions/core/serialized_navigation_entry.h"
-@@ -83,6 +84,11 @@ struct SESSIONS_EXPORT Entry {
+@@ -83,6 +84,11 @@
    explicit Entry(Type type);
  };
  
@@ -8278,18 +8229,19 @@ Index: src/components/sessions/core/tab_restore_types.h
  // Represents a previously open tab.
  // If you add a new field that can allocate memory also add
  // it to the EstimatedMemoryUsage() implementation.
-@@ -147,6 +153,15 @@ struct SESSIONS_EXPORT Tab : public Entr
+@@ -150,6 +156,16 @@
  
-   // The group metadata for the tab, if any.
-   std::optional<tab_groups::TabGroupVisualData> group_visual_data;
+   // True if `group` was an ephemeral tab group when the tab was closed.
+   bool is_group_ephemeral = false;
 +
 +  SessionID original_live_id = SessionID::InvalidValue();
 +  std::optional<nested_tabs::NestedTabVisualData> nested_visual_data;
 +
-+  // The children of the nested, if any.
++  // Direct children of a nested owner, in child order.
 +  std::vector<std::unique_ptr<Tab>> children;
 +
-+  // The parent of the nested, if any.
++  // Parent link recorded at close. Live ids are stale across a subtree restore;
++  // RestoreTab's parent_override replaces this when replaying children.
 +  std::optional<NestedTabChildRestorationInfo> parent_session_id;
  };
  
@@ -9569,8 +9521,8 @@ Index: src/chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_
 +    WindowOpenDisposition disposition) {
 +  if (!source || !new_contents || source == new_contents ||
 +      browser_->IsDeleteScheduled() ||
-+      (disposition != WindowOpenDisposition::NEW_FOREGROUND_TAB &&
-+       disposition != WindowOpenDisposition::NEW_BACKGROUND_TAB)) {
++      (disposition != WindowOpenDisposition::kNewForegroundTab &&
++       disposition != WindowOpenDisposition::kNewBackgroundTab)) {
 +    return;
 +  }
 +
@@ -9746,90 +9698,6 @@ Index: src/chrome/browser/ui/sessions/session_service_browser_helper.h
    SessionServiceBase* GetSessionService();
    SessionServiceBase* GetSessionServiceIfExisting();
  
-Index: src/chrome/browser/ui/tabs/tab_collection_unittest.cc
-===================================================================
---- src.orig/chrome/browser/ui/tabs/tab_collection_unittest.cc
-+++ src/chrome/browser/ui/tabs/tab_collection_unittest.cc
-@@ -20,6 +20,7 @@
- #include "components/split_tabs/split_tab_visual_data.h"
- #include "components/tab_groups/tab_group_id.h"
- #include "components/tab_groups/tab_group_visual_data.h"
-+#include "components/tabs/public/nested_tab_collection.h"
- #include "components/tabs/public/pinned_tab_collection.h"
- #include "components/tabs/public/split_tab_collection.h"
- #include "components/tabs/public/split_tab_data.h"
-@@ -1461,3 +1462,71 @@ TEST_F(TabStripCollectionTest, TabIterat
-   ++last_it;
-   EXPECT_EQ(last_it, tab_strip_collection->end());
- }
-+
-+TEST_F(TabCollectionBaseTest, NestedSubtreeMappingsFollowDetachAndInsert) {
-+  tabs::TabStripCollection strip;
-+  auto owner = std::make_unique<tabs::TabModel>(MakeWebContents(),
-+                                               GetTabStripModel());
-+  const auto outer_id = nested_tabs::NestedTabId::GenerateNew();
-+  auto outer = std::make_unique<tabs::NestedTabCollection>(
-+      outer_id, nested_tabs::NestedTabVisualData(), owner->GetHandle());
-+  AppendTab(outer.get(), std::move(owner));
-+
-+  auto inner_owner = std::make_unique<tabs::TabModel>(MakeWebContents(),
-+                                                     GetTabStripModel());
-+  const auto inner_id = nested_tabs::NestedTabId::GenerateNew();
-+  auto inner = std::make_unique<tabs::NestedTabCollection>(
-+      inner_id, nested_tabs::NestedTabVisualData(), inner_owner->GetHandle());
-+  AppendTab(inner.get(), std::move(inner_owner));
-+  const auto split_id = split_tabs::SplitTabId::GenerateNew();
-+  auto split = std::make_unique<tabs::SplitTabCollection>(
-+      split_id, split_tabs::SplitTabVisualData());
-+  for (int i = 0; i < 2; ++i) {
-+    AppendTab(split.get(), std::make_unique<tabs::TabModel>(
-+                              MakeWebContents(), GetTabStripModel()));
-+  }
-+  inner->AddCollection(std::move(split), 1);
-+  outer->AddCollection(std::move(inner), 1);
-+  auto* outer_ptr = outer.get();
-+  strip.InsertTabCollectionAt(std::move(outer), 0, false, std::nullopt);
-+  EXPECT_NE(strip.GetNestedTabCollection(outer_id), nullptr);
-+  EXPECT_NE(strip.GetNestedTabCollection(inner_id), nullptr);
-+  EXPECT_NE(strip.GetSplitTabCollection(split_id), nullptr);
-+  strip.ValidateData();
-+
-+  auto detached = strip.RemoveTabCollection(outer_ptr);
-+  EXPECT_EQ(strip.GetNestedTabCollection(outer_id), nullptr);
-+  EXPECT_EQ(strip.GetNestedTabCollection(inner_id), nullptr);
-+  EXPECT_EQ(strip.GetSplitTabCollection(split_id), nullptr);
-+  EXPECT_TRUE(strip.ListNesteds().empty());
-+  strip.InsertTabCollectionAt(std::move(detached), 0, false, std::nullopt);
-+  EXPECT_NE(strip.GetNestedTabCollection(inner_id), nullptr);
-+  EXPECT_NE(strip.GetSplitTabCollection(split_id), nullptr);
-+  strip.ValidateData();
-+}
-+
-+TEST_F(TabCollectionBaseTest, SplittingNestedOwnerUnwrapsItsCollection) {
-+  auto* model = GetTabStripModel();
-+  model->AppendWebContents(MakeWebContents(), true);
-+  model->AppendWebContents(MakeWebContents(), false);
-+  model->AppendWebContents(MakeWebContents(), false);
-+  ASSERT_TRUE(model->Nest(0, {1, 2}).has_value());
-+  const auto split_id = split_tabs::SplitTabId::GenerateNew();
-+  model->RestoreSplit(split_id, {0, 1}, split_tabs::SplitTabVisualData());
-+  EXPECT_TRUE(model->ListNesteds().empty());
-+  EXPECT_EQ(model->GetTabAtIndex(0)->GetSplit(), split_id);
-+  EXPECT_EQ(model->GetTabAtIndex(1)->GetSplit(), split_id);
-+  EXPECT_EQ(model->count(), 3);
-+  model->CloseAllTabs();
-+}
-+
-+TEST_F(TabCollectionBaseTest, NestWithNoParentPromotesChild) {
-+  auto* model = GetTabStripModel();
-+  model->AppendWebContents(MakeWebContents(), true);
-+  model->AppendWebContents(MakeWebContents(), false);
-+  ASSERT_TRUE(model->Nest(0, {1}).has_value());
-+  EXPECT_FALSE(model->Nest(std::nullopt, {1}).has_value());
-+  EXPECT_TRUE(model->ListNesteds().empty());
-+  EXPECT_EQ(model->count(), 2);
-+  model->CloseAllTabs();
-+}
 Index: src/chrome/browser/ui/views/tabs/common/nested_tab_view.cc
 ===================================================================
 --- /dev/null
@@ -10247,17 +10115,16 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_view_vertical_layout.cc
  #include "base/command_line.h"
  #include "chrome/browser/glic/browser_ui/tab_underline_view.h"
  #include "chrome/browser/ui/layout_constants.h"
-@@ -49,9 +51,15 @@ views::ProposedLayout TabViewVerticalLay
+@@ -50,9 +52,14 @@
      const views::SizeBounds& size_bounds) const {
-   const int width = size_bounds.width().value_or(
-       VerticalTabStripRegionView::kUncollapsedMaxWidth);
+   const int width =
+       size_bounds.width().value_or(tabs::kVerticalTabStripUncollapsedMaxWidth);
 -  const int height = GetLayoutConstant(
 -      TabView().pinned_ ? LayoutConstant::kVerticalTabPinnedHeight
 -                        : LayoutConstant::kVerticalTabHeight);
-+  // Reserve a full line box (not capital-letter ink bounds), decorated
-+  // favicon, alert icon and close glyph. Keeping this independent of hover and
-+  // pin state prevents rows jumping when controls become visible. Pinned titles
-+  // can appear during expand-on-hover, so use the same floor there too.
++  // Reserve a full line box, favicon, alert icon and close glyph. Keeping
++  // this independent of hover and pin state stops rows jumping when controls
++  // appear. Pinned titles can show during expand-on-hover, so use one floor.
 +  const int height = std::max(
 +      {TabView().vertical_row_height_, TabView().title_->GetLineHeight() + 2,
 +       TabView().icon_->GetPreferredSize().height() + 2,
@@ -10266,7 +10133,7 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_view_vertical_layout.cc
    views::ProposedLayout layouts;
    layouts.host_size = gfx::Size(width, height);
  
-@@ -64,6 +72,7 @@ views::ProposedLayout TabViewVerticalLay
+@@ -65,6 +72,7 @@
                             !TabView().IsInExpandOnHover(width);
  
    int placed_children = 0;
@@ -10274,7 +10141,7 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_view_vertical_layout.cc
    for (const auto& child : tab_children_configs_) {
      const bool can_render_child =
          is_centered
-@@ -72,9 +81,12 @@ views::ProposedLayout TabViewVerticalLay
+@@ -73,9 +81,12 @@
                 placed_children < 2);
      const bool is_child_visible = IsChildVisible(child.view, width);
      if (is_child_visible && can_render_child) {
@@ -10290,7 +10157,7 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_view_vertical_layout.cc
  
        if (!is_centered) {
          bounds_remaining.Inset(
-@@ -95,6 +107,9 @@ views::ProposedLayout TabViewVerticalLay
+@@ -96,6 +107,9 @@
      }
    }
  
@@ -10300,7 +10167,7 @@ Index: src/chrome/browser/ui/views/tabs/common/tab_view_vertical_layout.cc
    if (TabView().glic_tab_underline_view_) {
      const gfx::Rect glic_bounds =
          gfx::Rect(0, 0, 2 * glic::TabUnderlineView::kEffectThickness, height);
-@@ -122,6 +137,16 @@ gfx::Rect TabViewVerticalLayout::GetChil
+@@ -123,6 +137,16 @@
      const gfx::Size preferred_size = config.view->GetPreferredSize();
      preferred_width = preferred_size.width();
      preferred_height = preferred_size.height();
@@ -10587,19 +10454,19 @@ Index: src/chrome/browser/extensions/api/tabs/tabs_api.cc
 +#include <set>
 +#include <vector>
 +
+ #include "base/memory/weak_ptr.h"
  #include "base/metrics/histogram_functions.h"
  #include "base/metrics/histogram_macros.h"
- #include "base/notimplemented.h"
-@@ -89,6 +94,7 @@
- #include "chrome/browser/platform_util.h"
- #include "chrome/browser/ui/browser_commands.h"
- #include "chrome/browser/ui/browser_init_state.h"
+@@ -41,6 +46,7 @@
+ #include "chrome/browser/ui/recently_audible_helper.h"
+ #include "chrome/browser/ui/tabs/tab_enums.h"
+ #include "chrome/browser/ui/tabs/tab_muted_utils.h"
 +#include "chrome/browser/ui/tabs/tab_strip_model.h"
- #include "chrome/browser/ui/unload_controller.h"
- #include "chrome/browser/ui/web_applications/app_browser_controller.h"
- #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
-@@ -3007,6 +3013,98 @@ ExtensionFunction::ResponseValue TabsUpd
-           web_contents, extension(), source_context_type(), nullptr, -1)));
+ #include "chrome/common/pref_names.h"
+ #include "chrome/common/webui_url_constants.h"
+ #include "components/pref_registry/pref_registry_syncable.h"
+@@ -1745,6 +1751,98 @@
+       web_contents, extension(), source_context_type(), nullptr, -1)));
  }
  
 +#if !BUILDFLAG(IS_ANDROID)
@@ -10697,16 +10564,14 @@ Index: src/chrome/browser/extensions/api/tabs/tabs_api.cc
  ExtensionFunction::ResponseAction TabsMoveFunction::Run() {
    std::optional<tabs::Move::Params> params = tabs::Move::Params::Create(args());
    EXTENSION_FUNCTION_VALIDATE(params);
-@@ -3021,11 +3119,74 @@ ExtensionFunction::ResponseAction TabsMo
+@@ -1759,11 +1857,74 @@
      std::vector<int>& tab_ids = *params->tab_ids.as_integers;
      num_tabs = tab_ids.size();
  
 +#if !BUILDFLAG(IS_ANDROID)
 +    std::map<int, ::tabs::TabHandle> requested_by_id;
 +    std::vector<::tabs::TabHandle> requested;
-     for (int tab_id : tab_ids) {
--      if (!MoveTab(tab_id, &new_index, tab_values, window_id, &error)) {
--        return RespondNow(Error(std::move(error)));
++    for (int tab_id : tab_ids) {
 +      WindowController* window = nullptr;
 +      int index = -1;
 +      std::string ignored_error;
@@ -10722,13 +10587,15 @@ Index: src/chrome/browser/extensions/api/tabs/tabs_api.cc
 +          requested_by_id.emplace(tab_id, tab->GetHandle());
 +          requested.push_back(tab->GetHandle());
 +        }
-       }
-     }
++      }
++    }
 +    const auto nested_state = CaptureCompleteNestedTabsForMove(requested);
 +    std::set<::tabs::TabHandle> moved;
 +#endif
 +    bool move_failed = false;
-+    for (int tab_id : tab_ids) {
+     for (int tab_id : tab_ids) {
+-      if (!MoveTab(tab_id, &new_index, tab_values, window_id, &error)) {
+-        return RespondNow(Error(std::move(error)));
 +      if (!MoveTab(tab_id, &new_index, tab_values, window_id, &error,
 +                   /*move_only_requested_tab=*/true)) {
 +        move_failed = true;
@@ -10768,13 +10635,13 @@ Index: src/chrome/browser/extensions/api/tabs/tabs_api.cc
 +                                     : nullptr,
 +                              index)
 +                              .ToValue());
-+      }
-+    }
+       }
+     }
 +#endif
    } else {
      EXTENSION_FUNCTION_VALIDATE(params->tab_ids.as_integer);
      num_tabs = 1;
-@@ -3057,7 +3218,8 @@ bool TabsMoveFunction::MoveTab(int tab_i
+@@ -1795,7 +1956,8 @@
                                 int* new_index,
                                 base::ListValue& tab_values,
                                 const std::optional<int>& window_id,
@@ -10784,7 +10651,7 @@ Index: src/chrome/browser/extensions/api/tabs/tabs_api.cc
    WindowController* source_window = nullptr;
    content::WebContents* contents = nullptr;
    int tab_index = -1;
-@@ -3171,6 +3333,19 @@ bool TabsMoveFunction::MoveTab(int tab_i
+@@ -1918,6 +2080,19 @@
    CHECK(tab);
  
    if (*new_index != tab_index) {
