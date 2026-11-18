@@ -28,7 +28,6 @@ jobs:
     with:
       arch: ${{ matrix.arch }}
       runs-on: ${{ inputs.runner }}
-      resume_cache_run_id: "40560375468"
 
   release:
     name: Create release
